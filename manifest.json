@@ -1,0 +1,9 @@
+{
+  "name": "TYMICT 장착 고객 정보관리",
+  "short_name": "TYMICT 장착관리",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F4F6F8",
+  "theme_color": "#123B6D",
+  "icons": []
+}
