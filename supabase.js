@@ -1,7 +1,7 @@
 // supabase.js
 
-const SUPABASE_URL = "여기에_Project_URL_입력";
-const SUPABASE_ANON_KEY = "여기에_anon_public_key_입력";
+const SUPABASE_URL = "https://istnemevsmoymydfgvwy.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_lIcB5XNHaQUCMuKoPDIoGw_dDbW3CFm";
 
 const supabaseClient = supabase.createClient(
   SUPABASE_URL,
