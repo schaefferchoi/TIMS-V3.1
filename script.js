@@ -1,61 +1,50 @@
-const SUPABASE_URL="여기에_SUPABASE_PROJECT_URL";
-const SUPABASE_ANON_KEY="여기에_SUPABASE_ANON_PUBLIC_KEY";
-const supabaseDb=(SUPABASE_URL.startsWith("https://")&&SUPABASE_ANON_KEY.startsWith("ey"))?window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
-const KEY='tymict_install_customer_records_v2'; const MAXW=1280,Q=.72;
-const fields=['주문접수일','장착일자','제품명','BOX S/N','키패드 S/N','후방카메라 장착유무','판매처','일반/보조여부','거래처명','거래처 대표자','장착주체','장착직원','스플라인','장착브라켓','기종명','제조사','모델명','마력','고객명','고객연락처','고객주소','사용자교육일자','교육직원','주요작물','농사규모','기타사항'];
-const parts=['전체 장착상태','모니터/키패드','컨트롤 BOX','조향모터','핸들/스플라인','장착브라켓','GNSS 안테나','하니스 배선','후방카메라','작업기/외관','사용자교육','기타']; let current='';
-function recs(){return JSON.parse(localStorage.getItem(KEY)||'[]')} function save(rs){localStorage.setItem(KEY,JSON.stringify(rs))} function uid(){return crypto.randomUUID?crypto.randomUUID():Date.now()+''+Math.random()} function toast(m){let e=document.getElementById('toast');e.textContent=m;e.style.display='block';setTimeout(()=>e.style.display='none',2200)}
-function showTab(t){['form','photos','list','guide'].forEach(x=>document.getElementById(x+'Tab').classList.toggle('hidden',x!==t));document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',['form','photos','list','guide'][i]===t));if(t==='list')renderTable();if(t==='photos'){refreshSelect();renderPhotos()}}
-function collect(){let f=document.getElementById('installForm'),id=document.getElementById('recordId').value||uid(),old=recs().find(r=>r.id===id),d={id,photos:old?.photos||[],저장일시:new Date().toISOString()};fields.forEach(k=>{let e=[...f.elements].find(x=>x.name===k);d[k]=e?e.value.trim():''});return d}
+// TIM v2.1
+// Tab Controller
 
-function supaDate(v){return v&&v.trim()?v.trim():null}
-function supaPayload(d){return {
-  id:d.id,
-  install_date:supaDate(d['장착일자']),
-  dealer_name:d['거래처명']||null,
-  representative:d['거래처 대표자']||null,
-  installer:d['장착직원']||null,
-  install_subject:d['장착주체']||null,
-  product_name:d['제품명']||null,
-  box_sn:d['BOX S/N']||null,
-  keypad_sn:d['키패드 S/N']||null,
-  spline:d['스플라인']||null,
-  bracket:d['장착브라켓']||null,
-  machine_type:d['기종명']||null,
-  manufacturer:d['제조사']||null,
-  model_sn:d['모델명']||null,
-  customer_name:d['고객명']||null,
-  customer_phone:d['고객연락처']||null,
-  customer_address:d['고객주소']||null,
-  education_date:supaDate(d['사용자교육일자']),
-  farm_scale:d['농사규모']||null,
-  sales_agency:d['판매처']||null,
-  main_crop:d['주요작물']||null,
-  memo:d['기타사항']||null,
-  major_issue:null
-}}
-async function saveRecordToSupabase(d){
-  if(!supabaseDb){console.warn('Supabase URL 또는 anon key가 설정되지 않았습니다.');return false}
-  const {error}=await supabaseDb.from('install_records').upsert(supaPayload(d),{onConflict:'id'});
-  if(error){console.error(error);toast('Supabase 저장 실패: '+error.message);return false}
-  return true
-}
+document.addEventListener("DOMContentLoaded", () => {
 
-function upsert(){let d=collect(),rs=recs(),i=rs.findIndex(r=>r.id===d.id); if(i>=0)rs[i]=d; else rs.unshift(d); save(rs);document.getElementById('recordId').value=d.id;renderTable();return d}
-document.getElementById('installForm').addEventListener('submit',async e=>{e.preventDefault();let d=upsert();let ok=await saveRecordToSupabase(d);toast(ok?'고객정보가 Supabase에 저장되었습니다.':'고객정보가 이 기기에 저장되었습니다. Supabase 설정을 확인하세요.')});
-async function saveAndGoPhotos(){let f=document.getElementById('installForm'); if(!f.reportValidity())return; let d=upsert(); await saveRecordToSupabase(d); current=d.id; showTab('photos'); toast('저장되었습니다. 사진을 첨부하세요.')} function resetForm(sh=true){document.getElementById('installForm').reset();document.getElementById('recordId').value='';let today=new Date().toISOString().slice(0,10);document.getElementById('orderDate').value=today;document.getElementById('installDate').value=today;document.getElementById('productName').value='AGDICT 자율주행키트';if(sh)toast('신규 입력 상태입니다.')}
-function fill(r){document.getElementById('recordId').value=r.id;let f=document.getElementById('installForm');fields.forEach(k=>{let e=[...f.elements].find(x=>x.name===k);if(e)e.value=r[k]||''});showTab('form');toast('수정할 데이터를 불러왔습니다.')} function del(id){if(!confirm('고객정보와 첨부사진을 삭제하시겠습니까?'))return;save(recs().filter(r=>r.id!==id));if(current===id)current='';renderTable();refreshSelect();toast('삭제되었습니다.')}
-function clearAll(){if(!confirm('전체 고객정보와 사진을 삭제합니다. 계속하시겠습니까?'))return;if(!confirm('복구할 수 없습니다. 정말 삭제하시겠습니까?'))return;localStorage.removeItem(KEY);current='';renderTable();refreshSelect();renderPhotos();toast('전체 삭제되었습니다.')}
-function filtered(){let q=(document.getElementById('searchText')?.value||'').toLowerCase(),ch=document.getElementById('filterChannel')?.value||'',ty=document.getElementById('filterType')?.value||'';return recs().filter(r=>(!q||fields.map(k=>r[k]||'').join(' ').toLowerCase().includes(q))&&(!ch||r['판매처']===ch)&&(!ty||r['일반/보조여부']===ty))}
-function renderTable(){let tb=document.getElementById('recordsBody'); if(!tb)return;let rs=filtered();tb.innerHTML=rs.length?'':'<tr><td colspan="7" style="text-align:center;color:#657386;padding:22px">저장된 데이터가 없습니다.</td></tr>';rs.forEach(r=>{let tr=document.createElement('tr'),pc=(r.photos||[]).length;tr.innerHTML=`<td>${esc(r['장착일자']||'')}</td><td><b>${esc(r['고객명']||'')}</b><br><span class="small">${esc(r['고객연락처']||'')}</span><br><span class="small">${esc(r['고객주소']||'')}</span></td><td>${esc(r['제품명']||'')}<br><span class="small">BOX: ${esc(r['BOX S/N']||'')}</span><br><span class="small">KEY: ${esc(r['키패드 S/N']||'')}</span></td><td><span class="pill">${esc(r['기종명']||'-')}</span><br>${esc(r['제조사']||'')} ${esc(r['모델명']||'')}<br><span class="small">${esc(r['마력']||'')}마력</span></td><td>${esc(r['판매처']||'')}<br><span class="small">${esc(r['일반/보조여부']||'')}</span><br><span class="small">${esc(r['거래처명']||'')}</span></td><td><span class="pill">${pc}장</span></td><td class="row-actions"><button class="secondary" onclick="edit('${r.id}')">수정</button><button class="ok" onclick="photoById('${r.id}')">사진</button><button class="danger" onclick="del('${r.id}')">삭제</button></td>`;tb.appendChild(tr)});summary()}
-function edit(id){let r=recs().find(x=>x.id===id);if(r)fill(r)} function photoById(id){current=id;showTab('photos')} function summary(){let a=recs();document.getElementById('totalCount').textContent=a.length;document.getElementById('subsidyCount').textContent=a.filter(r=>r['일반/보조여부']==='보조').length;document.getElementById('cameraCount').textContent=a.filter(r=>r['후방카메라 장착유무']==='장착').length;document.getElementById('photoTotalCount').textContent=a.reduce((s,r)=>s+(r.photos||[]).length,0)}
-function refreshSelect(){let s=document.getElementById('photoRecordSelect'),rs=recs();if(!s)return;s.innerHTML='';if(!rs.length){s.innerHTML='<option value="">저장된 고객정보 없음</option>';current=''}else{rs.forEach(r=>{let o=document.createElement('option');o.value=r.id;o.textContent=`${r['장착일자']||''} / ${r['고객명']||'고객명 없음'} / ${r['제조사']||''} ${r['모델명']||''} / BOX ${r['BOX S/N']||''}`;s.appendChild(o)});if(!current||!rs.find(r=>r.id===current))current=rs[0].id;s.value=current}info()} function selectPhotoRecord(){current=document.getElementById('photoRecordSelect').value;info();renderPhotos()} function cur(){return recs().find(r=>r.id===current)}
-function info(){let r=cur(),e=document.getElementById('photoInfo'),c=document.getElementById('photoCount');if(!r){e.innerHTML='고객정보를 먼저 저장하세요.';if(c)c.value='0장';return}let p=r.photos||[];if(c)c.value=p.length+'장';e.innerHTML=`<b>${esc(r['고객명']||'')}</b> / ${esc(r['고객연락처']||'')}<br>${esc(r['제조사']||'')} ${esc(r['모델명']||'')} / BOX S/N: ${esc(r['BOX S/N']||'')}<br><span class="small">현재 등록사진: ${p.length}장</span>`}
-async function addPhotos(ev){let r=cur();if(!r){toast('먼저 고객정보를 저장하세요.');ev.target.value='';return}let files=[...ev.target.files];if(!files.length)return;toast('사진을 압축 저장 중입니다.');let rs=recs(),i=rs.findIndex(x=>x.id===current);for(let file of files){if(!file.type.startsWith('image/'))continue;let dataUrl=await resize(file);rs[i].photos=rs[i].photos||[];rs[i].photos.push({id:uid(),dataUrl,part:parts[rs[i].photos.length]||'기타',memo:'',originalName:file.name,createdAt:new Date().toISOString()})}save(rs);ev.target.value='';renderPhotos();toast(files.length+'장 추가되었습니다.')}
-function resize(file){return new Promise((res,rej)=>{let rd=new FileReader();rd.onerror=rej;rd.onload=e=>{let img=new Image();img.onerror=rej;img.onload=()=>{let sc=Math.min(1,MAXW/img.width),cv=document.createElement('canvas');cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);res(cv.toDataURL('image/jpeg',Q))};img.src=e.target.result};rd.readAsDataURL(file)})}
-function renderPhotos(){let g=document.getElementById('photoGrid'),r=cur();if(!g)return;g.innerHTML='';if(!r){g.innerHTML='<div class="small">고객정보를 먼저 저장하세요.</div>';info();return}let ps=r.photos||[];if(!ps.length){g.innerHTML='<div class="small">등록된 사진이 없습니다.</div>';info();return}ps.forEach((p,i)=>{let d=document.createElement('div');d.className='photo-card';let opts=parts.map(x=>`<option ${p.part===x?'selected':''}>${esc(x)}</option>`).join('');d.innerHTML=`<img src="${p.dataUrl}"><div class="photo-body"><label>사진 ${i+1} 부위명</label><select onchange="meta('${p.id}','part',this.value)">${opts}</select><label>사진 메모</label><input value="${esc(p.memo||'')}" oninput="meta('${p.id}','memo',this.value)" placeholder="예: 배선 정리 완료"><div class="row-actions"><button class="secondary" onclick="movePhoto('${p.id}',-1)">위로</button><button class="secondary" onclick="movePhoto('${p.id}',1)">아래로</button><button class="danger" onclick="deletePhoto('${p.id}')">삭제</button></div></div>`;g.appendChild(d)});info()}
-function meta(pid,k,v){let rs=recs(),i=rs.findIndex(r=>r.id===current);let p=(rs[i]?.photos||[]).find(x=>x.id===pid);if(p){p[k]=v;save(rs);info()}} function movePhoto(pid,d){let rs=recs(),i=rs.findIndex(r=>r.id===current),ps=rs[i].photos||[],j=ps.findIndex(p=>p.id===pid),n=j+d;if(j<0||n<0||n>=ps.length)return;[ps[j],ps[n]]=[ps[n],ps[j]];save(rs);renderPhotos()} function deletePhoto(pid){if(!confirm('이 사진을 삭제하시겠습니까?'))return;let rs=recs(),i=rs.findIndex(r=>r.id===current);rs[i].photos=(rs[i].photos||[]).filter(p=>p.id!==pid);save(rs);renderPhotos();toast('사진 삭제되었습니다.')} function clearCurrentPhotos(){let r=cur();if(!r)return;if(!confirm('현재 고객의 사진을 모두 삭제하시겠습니까?'))return;let rs=recs(),i=rs.findIndex(x=>x.id===current);rs[i].photos=[];save(rs);renderPhotos();toast('사진 전체 삭제되었습니다.')} function savePhotos(){renderPhotos();toast('사진 정보가 저장되었습니다.')}
-function downloadPhotoHtml(){let r=cur();if(!r){toast('사진대장이 없습니다.');return}let ps=r.photos||[],rows=ps.map((p,i)=>`<div class="photo"><h3>${i+1}. ${esc(p.part||'')}</h3><img src="${p.dataUrl}"><p>${esc(p.memo||'')}</p></div>`).join('');let doc=`<!DOCTYPE html><html lang="ko"><meta charset="UTF-8"><title>TYMICT 장착사진대장</title><style>body{font-family:Arial,'Noto Sans KR';margin:24px}h1,h3{color:#123B6D}.info,.photo{border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:16px}img{max-width:100%;height:auto;border-radius:8px}table{border-collapse:collapse;width:100%}td{border:1px solid #ddd;padding:8px}</style><body><h1>TYMICT 장착사진대장</h1><div class="info"><table><tr><td>고객명</td><td>${esc(r['고객명']||'')}</td><td>연락처</td><td>${esc(r['고객연락처']||'')}</td></tr><tr><td>장착일자</td><td>${esc(r['장착일자']||'')}</td><td>제품명</td><td>${esc(r['제품명']||'')}</td></tr><tr><td>BOX S/N</td><td>${esc(r['BOX S/N']||'')}</td><td>모델명</td><td>${esc(r['제조사']||'')} ${esc(r['모델명']||'')}</td></tr><tr><td>장착직원</td><td>${esc(r['장착직원']||'')}</td><td>사진수</td><td>${ps.length}장</td></tr></table></div>${rows}</body></html>`;download('\uFEFF'+doc, safe(`${r['장착일자']||''}_${r['고객명']||'고객'}_장착사진대장.html`),'text/html') ;toast('사진대장 HTML 저장되었습니다.')}
-function exportCSV(){let rs=filtered();if(!rs.length){toast('내보낼 데이터가 없습니다.');return}let head=[...fields,'사진수','사진부위목록','저장일시'];let csv='\uFEFF'+[head.join(','),...rs.map(r=>head.map(h=>{if(h==='사진수')return cell((r.photos||[]).length);if(h==='사진부위목록')return cell((r.photos||[]).map((p,i)=>`${i+1}.${p.part||''}`).join(' / '));return cell(r[h]||'')}).join(','))].join('\n');download(csv,`TYMICT_장착고객정보_${new Date().toISOString().slice(0,10)}.csv`,'text/csv');toast('CSV 내보내기 완료')}
-function download(content,name,type){let b=new Blob([content],{type:type+';charset=utf-8;'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)} function cell(v){return '"'+String(v).replace(/"/g,'""')+'"'} function esc(v){return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')} function safe(n){return String(n).replace(/[\\/:*?"<>|]/g,'_')}
-window.addEventListener('load',()=>{resetForm(false);renderTable();refreshSelect();renderPhotos();if('serviceWorker'in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('service-worker.js').catch(()=>{})});
+    const tabs = document.querySelectorAll(".tab");
+    const pages = document.querySelectorAll(".page");
+
+    function showTab(tabName){
+
+        pages.forEach(page=>{
+            page.classList.add("hidden");
+        });
+
+        tabs.forEach(tab=>{
+            tab.classList.remove("active");
+        });
+
+        const targetPage =
+            document.getElementById(tabName + "Tab");
+
+        if(targetPage){
+            targetPage.classList.remove("hidden");
+        }
+
+        const targetButton =
+            document.querySelector(`[data-tab="${tabName}"]`);
+
+        if(targetButton){
+            targetButton.classList.add("active");
+        }
+
+    }
+
+    tabs.forEach(tab=>{
+
+        tab.addEventListener("click",()=>{
+
+            const tabName =
+                tab.dataset.tab;
+
+            showTab(tabName);
+
+        });
+
+    });
+
+    showTab("dashboard");
+
+});
