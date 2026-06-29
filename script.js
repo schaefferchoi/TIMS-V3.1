@@ -103,9 +103,11 @@ if (record.id) {
 
 } else {
 
+    const { id, ...insertRecord } = record;
+
     result = await supabaseClient
         .from("install_records")
-        .insert([record]);
+        .insert([insertRecord]);
 
 }
 
@@ -491,7 +493,14 @@ ${photoHtml}
 `;
 
     console.log(html);
+
+   const dateCode = (data.install_date || "")
+    .replaceAll("-", "")
+    .slice(2); 
     
+    const pageTitle =
+    `[${dateCode}] ${data.dealer_region || data.dealer_name || ""} ${data.manufacturer || ""}${data.model_sn || ""}_${data.box_sn || ""}`;
+
     const response = await fetch(
     "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
     {
@@ -504,8 +513,7 @@ ${photoHtml}
             email,
             token,
             space,
-            title: `${data.customer_name || "고객"} 장착 보고서`,
-            html,
+            title: pageTitle,
             data
         })
     }
@@ -564,3 +572,21 @@ localStorage.getItem("confToken") || "";
 
 document.getElementById("confSpace").value =
 localStorage.getItem("confSpace") || "";
+
+document.getElementById("newRecordBtn").addEventListener("click", () => {
+
+    document.getElementById("installForm").reset();
+
+    document.getElementById("recordId").value = "";
+
+   const statusInput = document.querySelector('[name="status"]');
+    if (statusInput) {
+        statusInput.value = "draft";
+    }
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+
+});
