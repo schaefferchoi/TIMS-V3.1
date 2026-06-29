@@ -418,3 +418,149 @@ async function deletePhoto(photoId, photoPath) {
 function openPhoto(url) {
     window.open(url, "_blank");
 }
+document
+.getElementById("confluenceBtn")
+.addEventListener("click", generateConfluence);
+async function generateConfluence() {
+
+    const form = document.getElementById("installForm");
+
+    const data = Object.fromEntries(
+        new FormData(form)
+    );
+    const recordId = document.getElementById("recordId").value;
+
+    const url = localStorage.getItem("confUrl");
+    const email = localStorage.getItem("confEmail");
+    const token = localStorage.getItem("confToken");
+    const space = localStorage.getItem("confSpace");
+
+const { data: photos, error: photoError } = await supabaseClient
+    .from("install_photos")
+    .select("*")
+    .eq("record_id", recordId)
+    .order("created_at", { ascending: true });
+
+if (photoError) {
+    console.error(photoError);
+}
+const photoHtml = (photos || []).map(photo => {
+    const { data } = supabaseClient.storage
+        .from("install-photos")
+        .getPublicUrl(photo.photo_path);
+
+    return `<img src="${data.publicUrl}" style="
+width:45%;
+max-width:450px;
+margin:10px;
+border:1px solid #ccc;
+padding:5px;
+">`;
+}).join("");
+
+    const html = `
+<h1>장착 보고서</h1>
+
+<h2>장착 정보</h2>
+
+<table border="1" cellspacing="0" cellpadding="5">
+
+<tr><td>고객명</td><td>${data.customer_name}</td></tr>
+
+<tr><td>딜러점</td><td>${data.dealer_name}</td></tr>
+
+<tr><td>BOX S/N</td><td>${data.box_sn}</td></tr>
+
+<tr><td>KEYPAD S/N</td><td>${data.keypad_sn}</td></tr>
+
+<tr><td>장착일자</td><td>${data.install_date}</td></tr>
+
+</table>
+
+<h2>주요 이슈</h2>
+
+<p>${data.major_issue}</p>
+
+<h2>장착사진</h2>
+
+${photoHtml}
+
+<h2>비고</h2>
+
+<p>${data.memo}</p>
+`;
+
+    console.log(html);
+    
+    const response = await fetch(
+    "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
+    {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            url,
+            email,
+            token,
+            space,
+            title: `${data.customer_name || "고객"} 장착 보고서`,
+            html,
+            data
+        })
+    }
+);
+
+const result = await response.json();
+
+console.log(result);
+
+if (response.ok) {
+    alert("Confluence 페이지 생성 완료!");
+} else {
+    alert("생성 실패");
+    console.error(result);
+}
+
+    
+}
+document
+.getElementById("saveSettingBtn")
+.addEventListener("click", saveConfluenceSetting);
+
+function saveConfluenceSetting(){
+
+    localStorage.setItem(
+        "confUrl",
+        document.getElementById("confUrl").value
+    );
+
+    localStorage.setItem(
+        "confEmail",
+        document.getElementById("confEmail").value
+    );
+
+    localStorage.setItem(
+        "confToken",
+        document.getElementById("confToken").value
+    );
+
+    localStorage.setItem(
+        "confSpace",
+        document.getElementById("confSpace").value
+    );
+
+    alert("Confluence 설정이 저장되었습니다.");
+}
+
+document.getElementById("confUrl").value =
+localStorage.getItem("confUrl") || "";
+
+document.getElementById("confEmail").value =
+localStorage.getItem("confEmail") || "";
+
+document.getElementById("confToken").value =
+localStorage.getItem("confToken") || "";
+
+document.getElementById("confSpace").value =
+localStorage.getItem("confSpace") || "";

@@ -23,6 +23,7 @@
     <button class="tab" data-tab="form">장착등록</button>
     <button class="tab" data-tab="photos">사진관리</button>
     <button class="tab" data-tab="list">장착목록</button>
+    <button class="tab" data-tab="setting">설정</button>
   </nav>
 
   <main class="container">
@@ -194,6 +195,7 @@
           <button id="saveBtn" type="submit" class="primary">저장</button>
           <button type="button" class="secondary" id="newRecordBtn">신규 입력</button>
           <button type="button" class="secondary" id="goPhotoBtn">사진 관리</button>
+          <button type="button" class="secondary" id="confluenceBtn">Confluence 생성</button>
         </div>
       </form>
     </section>
@@ -254,6 +256,42 @@
         </div>
       </div>
     </section>
+    <section id="settingTab" class="page hidden">
+
+<div class="card">
+
+<h2>Confluence 설정</h2>
+
+<label>
+Confluence URL
+<input id="confUrl" type="text">
+</label>
+
+<label>
+Email
+<input id="confEmail" type="email">
+</label>
+
+<label>
+API Token
+<input id="confToken" type="password">
+</label>
+
+<label>
+Space Key
+<input id="confSpace" type="text">
+</label>
+
+<button
+type="button"
+id="saveSettingBtn"
+class="primary">
+저장
+</button>
+
+</div>
+
+</section>
   </main>
 
   <div id="toast" class="toast"></div>
