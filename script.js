@@ -55,7 +55,11 @@ function collectFormData() {
     const form = document.getElementById("installForm");
     const formData = new FormData(form);
 
+    const recordId = document.getElementById("recordId").value;
+    console.log("recordId =", recordId);
+
     return {
+        id: recordId || undefined,
         install_date: formData.get("install_date") || null,
         dealer_name: formData.get("dealer_name") || null,
         representative: formData.get("representative") || null,
@@ -88,9 +92,24 @@ function collectFormData() {
 }
 
 async function saveRecord(record) {
-    const { data, error } = await supabaseClient
+    let result;
+
+if (record.id) {
+
+    result = await supabaseClient
+        .from("install_records")
+        .update(record)
+        .eq("id", record.id);
+
+} else {
+
+    result = await supabaseClient
         .from("install_records")
         .insert([record]);
+
+}
+
+const { data, error } = result;
 
     if (error) {
         console.error(error);
@@ -104,8 +123,6 @@ async function saveRecord(record) {
 }
 document.getElementById("installForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    alert("저장 버튼 클릭됨");
 
     const record = collectFormData();
 
@@ -129,6 +146,7 @@ async function loadRecords() {
         return;
     }
 
+    console.log("현재 목록", data);
     renderRecords(data || []);
 }
 function renderRecords(records) {
@@ -158,8 +176,87 @@ function renderRecords(records) {
             </td>
             <td>${record.status || "저장"}</td>
             <td>
-                <button class="secondary" type="button">보기</button>
-            </td>
+    <button class="secondary"
+        type="button"
+        onclick="viewRecord('${record.id}')">
+        보기
+    </button>
+
+    <button class="danger"
+        type="button"
+        onclick="deleteRecord('${record.id}')">
+        삭제
+    </button>
+</td>
         </tr>
     `).join("");
+}
+// =============================
+// 장착 상세 보기
+// =============================
+
+async function viewRecord(id) {
+    console.log("보기 클릭:", id);
+    const { data, error } = await supabaseClient
+        .from("install_records")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+    if (error) {
+        console.error(error);
+        alert("데이터 불러오기 실패");
+        return;
+    }
+
+    fillForm(data);
+    document.querySelectorAll(".page").forEach(page => {
+    page.classList.add("hidden");
+});
+
+document.querySelectorAll(".tab").forEach(tab => {
+    tab.classList.remove("active");
+});
+
+document.getElementById("formTab").classList.remove("hidden");
+document.querySelector('[data-tab="form"]').classList.add("active");
+}
+function fillForm(record) {
+    const form = document.getElementById("installForm");
+
+    Object.keys(record).forEach((key) => {
+        const input = form.elements[key];
+
+        if (input) {
+            input.value = record[key] || "";
+        }
+    });
+
+    const recordIdInput = document.getElementById("recordId");
+
+    if (recordIdInput) {
+        recordIdInput.value = record.id;
+    }
+}
+async function deleteRecord(id) {
+    console.log("삭제 시도 id:", id);
+    
+    if (!confirm("정말 삭제하시겠습니까?")) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("install_records")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+        console.error(error);
+        alert("삭제 실패");
+        return;
+    }
+
+    alert("삭제 완료");
+    
+    await loadRecords();
 }
