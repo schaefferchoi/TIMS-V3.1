@@ -240,7 +240,7 @@ function fillForm(record) {
 }
 async function deleteRecord(id) {
     console.log("삭제 시도 id:", id);
-    
+
     if (!confirm("정말 삭제하시겠습니까?")) {
         return;
     }
@@ -259,4 +259,115 @@ async function deleteRecord(id) {
     alert("삭제 완료");
     
     await loadRecords();
+}
+document.getElementById("goPhotoBtn").addEventListener("click", () => {
+    document.querySelectorAll(".page").forEach(page => {
+        page.classList.add("hidden");
+    });
+
+    document.querySelectorAll(".tab").forEach(tab => {
+        tab.classList.remove("active");
+    });
+
+    document.getElementById("photosTab").classList.remove("hidden");
+    document.querySelector('[data-tab="photos"]').classList.add("active");
+});
+// ==========================
+// 사진 업로드
+// ==========================
+async function uploadPhoto() {
+
+    const recordId = document.getElementById("recordId").value;
+
+    if (!recordId) {
+        alert("먼저 장착정보를 저장하거나 보기로 열어주세요.");
+        return;
+    }
+
+    const input = document.getElementById("photoInput");
+
+    if (!input.files.length) {
+        alert("사진을 선택하세요.");
+        return;
+    }
+
+    for (const file of input.files) {
+
+        const ext = file.name.split(".").pop().toLowerCase();
+
+        const fileName =
+        `${recordId}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
+
+        const { error: uploadError } =
+            await supabaseClient.storage
+                .from("install-photos")
+                .upload(fileName, file);
+
+        if (uploadError) {
+            console.error(uploadError);
+            alert("사진 업로드 실패");
+            return;
+        }
+
+        const { data: publicUrlData } =
+            supabaseClient.storage
+                .from("install-photos")
+                .getPublicUrl(fileName);
+
+        await supabaseClient
+            .from("install_photos")
+            .insert({
+                record_id: recordId,
+                photo_url: publicUrlData.publicUrl,
+                photo_path: fileName
+            });
+
+    }
+
+    alert("사진 업로드 완료");
+    await loadPhotos(); 
+    }
+
+
+document.getElementById("uploadPhotoBtn").addEventListener("click", () => {
+    console.log("업로드 버튼 클릭");
+    uploadPhoto();
+});
+async function loadPhotos() {
+    const recordId = document.getElementById("recordId").value;
+
+    if (!recordId) {
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("install_photos")
+        .select("*")
+        .eq("record_id", recordId)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error(error);
+        alert("사진 목록 조회 실패");
+        return;
+    }
+
+    renderPhotos(data || []);
+}
+function renderPhotos(photos) {
+    const preview = document.getElementById("photoPreview");
+
+    if (!preview) return;
+
+    if (!photos.length) {
+        preview.innerHTML = "<p class='muted'>등록된 사진이 없습니다.</p>";
+        return;
+    }
+
+    preview.innerHTML = photos.map(photo => `
+        <div class="photo-card">
+            <img src="${photo.photo_url}" alt="장착사진">
+            <p>${photo.memo || ""}</p>
+        </div>
+    `).join("");
 }
