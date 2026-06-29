@@ -210,6 +210,7 @@ async function viewRecord(id) {
     }
 
     fillForm(data);
+    await loadPhotos();
     document.querySelectorAll(".page").forEach(page => {
     page.classList.add("hidden");
 });
@@ -364,10 +365,51 @@ function renderPhotos(photos) {
         return;
     }
 
-    preview.innerHTML = photos.map(photo => `
-        <div class="photo-card">
-            <img src="${photo.photo_url}" alt="장착사진">
-            <p>${photo.memo || ""}</p>
-        </div>
-    `).join("");
+    preview.innerHTML = photos.map(photo => {
+        const { data } = supabaseClient.storage
+            .from("install-photos")
+            .getPublicUrl(photo.photo_path);
+
+        return `
+    <div class="photo-card">
+        <img src="${data.publicUrl}" alt="장착사진">
+
+        <button
+            type="button"
+            class="danger"
+            onclick="deletePhoto('${photo.id}', '${photo.photo_path}')">
+            삭제
+        </button>
+    </div>
+`;
+    }).join("");
+}
+async function deletePhoto(photoId, photoPath) {
+    if (!confirm("이 사진을 삭제하시겠습니까?")) {
+        return;
+    }
+
+    const { error: storageError } = await supabaseClient.storage
+        .from("install-photos")
+        .remove([photoPath]);
+
+    if (storageError) {
+        console.error(storageError);
+        alert("Storage 사진 삭제 실패");
+        return;
+    }
+
+    const { error: dbError } = await supabaseClient
+        .from("install_photos")
+        .delete()
+        .eq("id", photoId);
+
+    if (dbError) {
+        console.error(dbError);
+        alert("DB 사진 삭제 실패");
+        return;
+    }
+
+    alert("사진 삭제 완료");
+    await loadPhotos();
 }
