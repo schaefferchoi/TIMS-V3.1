@@ -372,8 +372,10 @@ function renderPhotos(photos) {
 
         return `
     <div class="photo-card">
-        <img src="${data.publicUrl}" alt="장착사진">
-
+        <img
+    src="${data.publicUrl}"
+    alt="장착사진"
+    onclick="openPhoto('${data.publicUrl}')">
         <button
             type="button"
             class="danger"
@@ -412,4 +414,7 @@ async function deletePhoto(photoId, photoPath) {
 
     alert("사진 삭제 완료");
     await loadPhotos();
+}
+function openPhoto(url) {
+    window.open(url, "_blank");
 }
