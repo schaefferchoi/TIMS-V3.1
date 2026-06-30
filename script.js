@@ -263,48 +263,42 @@ async function deleteRecord(id) {
     
     await loadRecords();
 }
-document.getElementById("goPhotoBtn").addEventListener("click", () => {
-    document.querySelectorAll(".page").forEach(page => {
-        page.classList.add("hidden");
-    });
 
-    document.querySelectorAll(".tab").forEach(tab => {
-        tab.classList.remove("active");
-    });
+async function uploadPhotoByType(photoType, inputId) {
+    let recordId = document.getElementById("recordId").value;
 
-    document.getElementById("photosTab").classList.remove("hidden");
-    document.querySelector('[data-tab="photos"]').classList.add("active");
-});
-// ==========================
-// 사진 업로드
-// ==========================
-async function uploadPhoto() {
+if (!recordId) {
+    const ok = confirm("장착정보가 아직 저장되지 않았습니다. 저장 후 계속하시겠습니까?");
+    if (!ok) return;
 
-    const recordId = document.getElementById("recordId").value;
+    await saveRecord();
+
+    recordId = document.getElementById("recordId").value;
 
     if (!recordId) {
-        alert("먼저 장착정보를 저장하거나 보기로 열어주세요.");
+        alert("장착정보 저장에 실패했습니다.");
+        return;
+    }
+}
+    if (!recordId) {
+        alert("먼저 장착정보를 저장하세요.");
         return;
     }
 
-    const input = document.getElementById("photoInput");
+    const input = document.getElementById(inputId);
 
-    if (!input.files.length) {
+    if (!input || !input.files.length) {
         alert("사진을 선택하세요.");
         return;
     }
 
     for (const file of input.files) {
-
         const ext = file.name.split(".").pop().toLowerCase();
+        const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
-        const fileName =
-        `${recordId}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
-
-        const { error: uploadError } =
-            await supabaseClient.storage
-                .from("install-photos")
-                .upload(fileName, file);
+        const { error: uploadError } = await supabaseClient.storage
+            .from("install-photos")
+            .upload(fileName, file);
 
         if (uploadError) {
             console.error(uploadError);
@@ -312,30 +306,31 @@ async function uploadPhoto() {
             return;
         }
 
-        const { data: publicUrlData } =
-            supabaseClient.storage
-                .from("install-photos")
-                .getPublicUrl(fileName);
+        const { data: publicUrlData } = supabaseClient.storage
+            .from("install-photos")
+            .getPublicUrl(fileName);
 
-        await supabaseClient
+        const { error: insertError } = await supabaseClient
             .from("install_photos")
             .insert({
                 record_id: recordId,
-                photo_url: publicUrlData.publicUrl,
-                photo_path: fileName
+                photo_type: photoType,
+                photo_path: fileName,
+                photo_url: publicUrlData.publicUrl
             });
 
+        if (insertError) {
+            console.error(insertError);
+            alert("사진 정보 저장 실패");
+            return;
+        }
     }
 
+    input.value = "";
     alert("사진 업로드 완료");
-    await loadPhotos(); 
-    }
+    await loadPhotos();
+}
 
-
-document.getElementById("uploadPhotoBtn").addEventListener("click", () => {
-    console.log("업로드 버튼 클릭");
-    uploadPhoto();
-});
 async function loadPhotos() {
     const recordId = document.getElementById("recordId").value;
 
@@ -358,35 +353,72 @@ async function loadPhotos() {
     renderPhotos(data || []);
 }
 function renderPhotos(photos) {
-    const preview = document.getElementById("photoPreview");
 
-    if (!preview) return;
+    const photoAreaMap = {
+        install: "installPhotos",
+        vehicle: "vehiclePhotos",
+        version: "versionPhotos",
+        eps: "epsPhotos",
+        cpg: "cpgPhotos",
+        acu: "acuPhotos"
+    };
 
-    if (!photos.length) {
-        preview.innerHTML = "<p class='muted'>등록된 사진이 없습니다.</p>";
-        return;
-    }
+    // 기존 사진 비우기
+    Object.values(photoAreaMap).forEach(id => {
+        const area = document.getElementById(id);
+        if (area) area.innerHTML = "";
+    });
 
-    preview.innerHTML = photos.map(photo => {
-        const { data } = supabaseClient.storage
-            .from("install-photos")
-            .getPublicUrl(photo.photo_path);
+    // 사진 출력
+    photos.forEach(photo => {
 
-        return `
-    <div class="photo-card">
-        <img
-    src="${data.publicUrl}"
-    alt="장착사진"
-    onclick="openPhoto('${data.publicUrl}')">
-        <button
-            type="button"
-            class="danger"
-            onclick="deletePhoto('${photo.id}', '${photo.photo_path}')">
-            삭제
-        </button>
-    </div>
-`;
-    }).join("");
+        const target = document.getElementById(photoAreaMap[photo.photo_type]);
+
+        if (!target) return;
+
+        target.innerHTML += `
+            <div class="photo-card">
+
+                <img
+                    src="${photo.photo_url}"
+                    alt="사진"
+                    onclick="openPhoto('${photo.photo_url}')">
+
+                <button
+                    type="button"
+                    class="danger"
+                    onclick="deletePhoto('${photo.id}','${photo.photo_path}')">
+                    삭제
+                </button>
+
+            </div>
+        `;
+
+    });
+
+}
+function newForm() {
+    const form = document.getElementById("installForm");
+    if (form) form.reset();
+
+    const recordId = document.getElementById("recordId");
+    if (recordId) recordId.value = "";
+
+    ["installPhotos", "vehiclePhotos", "versionPhotos", "epsPhotos", "cpgPhotos", "acuPhotos"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = "";
+    });
+
+    ["installIssue", "vehicleIssue", "versionIssue", "epsIssue", "cpgIssue", "acuIssue"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+     // 맨 위로 이동
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
 }
 async function deletePhoto(photoId, photoPath) {
     if (!confirm("이 사진을 삭제하시겠습니까?")) {
@@ -446,20 +478,31 @@ const { data: photos, error: photoError } = await supabaseClient
 if (photoError) {
     console.error(photoError);
 }
-const photoHtml = (photos || []).map(photo => {
-    const { data } = supabaseClient.storage
-        .from("install-photos")
-        .getPublicUrl(photo.photo_path);
+function makePhotoHtml(type) {
+    return (photos || [])
+        .filter(photo => photo.photo_type === type)
+        .map(photo => {
+            const imageUrl = photo.photo_url || "";
 
-    return `<img src="${data.publicUrl}" style="
-width:45%;
-max-width:450px;
-margin:10px;
-border:1px solid #ccc;
-padding:5px;
-">`;
-}).join("");
+            return `
+                <img src="${imageUrl}" style="
+                    width:45%;
+                    max-width:450px;
+                    margin:10px;
+                    border:1px solid #ccc;
+                    padding:5px;
+                ">
+            `;
+        })
+        .join("");
+}
 
+const installPhotoHtml = makePhotoHtml("install");
+const vehiclePhotoHtml = makePhotoHtml("vehicle");
+const versionPhotoHtml = makePhotoHtml("version");
+const epsPhotoHtml = makePhotoHtml("eps");
+const cpgPhotoHtml = makePhotoHtml("cpg");
+const acuPhotoHtml = makePhotoHtml("acu");
     const html = `
 <h1>장착 보고서</h1>
 
@@ -485,14 +528,11 @@ padding:5px;
 
 <h2>장착사진</h2>
 
-${photoHtml}
 
 <h2>비고</h2>
 
 <p>${data.memo}</p>
 `;
-
-    console.log(html);
 
    const dateCode = (data.install_date || "")
     .replaceAll("-", "")
@@ -514,7 +554,8 @@ ${photoHtml}
             token,
             space,
             title: pageTitle,
-            data
+            data,
+            photos
         })
     }
 );
@@ -573,20 +614,4 @@ localStorage.getItem("confToken") || "";
 document.getElementById("confSpace").value =
 localStorage.getItem("confSpace") || "";
 
-document.getElementById("newRecordBtn").addEventListener("click", () => {
-
-    document.getElementById("installForm").reset();
-
-    document.getElementById("recordId").value = "";
-
-   const statusInput = document.querySelector('[name="status"]');
-    if (statusInput) {
-        statusInput.value = "draft";
-    }
-
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
-
-});
+document.getElementById("newRecordBtn").addEventListener("click", newForm);

@@ -21,7 +21,6 @@
   <nav class="tabs">
     <button class="tab active" data-tab="dashboard">대시보드</button>
     <button class="tab" data-tab="form">장착등록</button>
-    <button class="tab" data-tab="photos">사진관리</button>
     <button class="tab" data-tab="list">장착목록</button>
     <button class="tab" data-tab="setting">설정</button>
   </nav>
@@ -193,39 +192,144 @@
 
         <div class="actions">
           <button id="saveBtn" type="submit" class="primary">저장</button>
-          <button type="button" class="secondary" id="newRecordBtn">신규 입력</button>
-          <button type="button" class="secondary" id="goPhotoBtn">사진 관리</button>
+          <button type="button" class="secondary" id="newRecordBtn" onclick="newForm()">신규 입력</button>
           <button type="button" class="secondary" id="confluenceBtn">Confluence 생성</button>
         </div>
-      </form>
-    </section>
+      
+      <h3>8. 사진 등록</h3>
 
-    <section id="photosTab" class="page hidden">
-    <div class="card">
-        <h2>사진관리</h2>
+<div class="photo-report-section">
 
-        <p class="muted">
-            장착목록에서 보기 버튼을 눌러 장착 정보를 연 뒤 사진을 업로드하세요.
-        </p>
+    <!-- 장착사진 -->
+    <div class="photo-report-row">
+        <div class="photo-report-cell">
+            <h4>장착사진</h4>
 
-        <div class="photo-upload-box">
-            <input
-                type="file"
-                id="photoInput"
-                multiple
-                accept="image/*">
+            <input type="file" id="installPhotoInput" multiple accept="image/*">
 
-            <button
-                type="button"
-                class="primary"
-                id="uploadPhotoBtn">
-                사진 업로드
+            <button type="button"
+                onclick="uploadPhotoByType('install','installPhotoInput')">
+                업로드
             </button>
+
+            <div id="installPhotos" class="photo-grid"></div>
         </div>
 
-        <div id="photoPreview" class="photo-grid"></div>
+        <div class="photo-report-cell issue-cell">
+            <h4>주요 이슈</h4>
+            <textarea id="installIssue" placeholder="주요 이슈를 입력하세요"></textarea>
+        </div>
     </div>
-</section>
+
+    <!-- 차량제원 -->
+    <div class="photo-report-row">
+        <div class="photo-report-cell">
+            <h4>차량제원</h4>
+
+            <input type="file" id="vehiclePhotoInput" multiple accept="image/*">
+
+            <button type="button"
+                onclick="uploadPhotoByType('vehicle','vehiclePhotoInput')">
+                업로드
+            </button>
+
+            <div id="vehiclePhotos" class="photo-grid"></div>
+        </div>
+
+        <div class="photo-report-cell issue-cell">
+            <h4>주요 이슈</h4>
+            <textarea id="vehicleIssue" placeholder="주요 이슈를 입력하세요"></textarea>
+        </div>
+    </div>
+
+    <!-- F/W, S/W 버전 -->
+    <div class="photo-report-row">
+        <div class="photo-report-cell">
+            <h4>F/W, S/W 버전</h4>
+
+            <input type="file" id="versionPhotoInput" multiple accept="image/*">
+
+            <button type="button"
+                onclick="uploadPhotoByType('version','versionPhotoInput')">
+                업로드
+            </button>
+
+            <div id="versionPhotos" class="photo-grid"></div>
+        </div>
+
+        <div class="photo-report-cell issue-cell">
+            <h4>주요 이슈</h4>
+            <textarea id="versionIssue" placeholder="주요 이슈를 입력하세요"></textarea>
+        </div>
+    </div>
+
+    <!-- EPS부 장착 사진 -->
+    <div class="photo-report-row">
+        <div class="photo-report-cell">
+            <h4>EPS부 장착 사진</h4>
+
+            <input type="file" id="epsPhotoInput" multiple accept="image/*">
+
+            <button type="button"
+                onclick="uploadPhotoByType('eps','epsPhotoInput')">
+                업로드
+            </button>
+
+            <div id="epsPhotos" class="photo-grid"></div>
+        </div>
+
+        <div class="photo-report-cell issue-cell">
+            <h4>주요 이슈</h4>
+            <textarea id="epsIssue" placeholder="주요 이슈를 입력하세요"></textarea>
+        </div>
+    </div>
+
+    <!-- CPG/KEYPAD 장착사진 -->
+    <div class="photo-report-row">
+        <div class="photo-report-cell">
+            <h4>CPG/KEYPAD 장착사진</h4>
+
+            <input type="file" id="cpgPhotoInput" multiple accept="image/*">
+
+            <button type="button"
+                onclick="uploadPhotoByType('cpg','cpgPhotoInput')">
+                업로드
+            </button>
+
+            <div id="cpgPhotos" class="photo-grid"></div>
+        </div>
+
+        <div class="photo-report-cell issue-cell">
+            <h4>주요 이슈</h4>
+            <textarea id="cpgIssue" placeholder="주요 이슈를 입력하세요"></textarea>
+        </div>
+    </div>
+
+    <!-- ACU부 부착 사진 -->
+<div class="photo-report-row">
+    <div class="photo-report-cell">
+        <h4>ACU부 부착 사진</h4>
+
+        <input type="file" id="acuPhotoInput" multiple accept="image/*">
+
+        <button type="button"
+            onclick="uploadPhotoByType('acu','acuPhotoInput')">
+            업로드
+        </button>
+
+        <div id="acuPhotos" class="photo-grid"></div>
+    </div>
+
+    <div class="photo-report-cell issue-cell">
+        <h4>주요 이슈</h4>
+        <textarea id="acuIssue" name="acu_issue" placeholder="주요 이슈를 입력하세요"></textarea>
+    </div>
+</div>
+
+</div>
+
+      </form>
+    </section>
 
     <section id="listTab" class="page hidden">
       <div class="card">
