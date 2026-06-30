@@ -135,21 +135,38 @@ document.getElementById("installForm").addEventListener("submit", async (event) 
 // =============================
 // 장착목록 조회
 // =============================
+let allRecords = [];
 
 async function loadRecords() {
     const { data, error } = await supabaseClient
         .from("install_records")
         .select("*")
         .order("created_at", { ascending: false });
-
+    
+    const { data: photos, error: photoError } = await supabaseClient
+        .from("install_photos")
+        .select("record_id");
+    
     if (error) {
         console.error(error);
         alert("목록 조회 실패");
         return;
     }
 
+    const photoCountMap = {};
+
+(photos || []).forEach(photo => {
+    photoCountMap[photo.record_id] =
+        (photoCountMap[photo.record_id] || 0) + 1;
+});
+
     console.log("현재 목록", data);
-    renderRecords(data || []);
+    
+    allRecords = (data || []).map(record => ({
+    ...record,
+    photoCount: photoCountMap[record.id] || 0
+}));
+    applyRecordFilters();
 }
 function renderRecords(records) {
     const tbody = document.getElementById("recordsBody");
@@ -176,6 +193,9 @@ function renderRecords(records) {
             <td>
                 ${record.manufacturer || ""} ${record.model_sn || ""}
             </td>
+
+            <td>${record.photoCount || 0} / 8</td>
+
             <td>${record.status || "저장"}</td>
             <td>
     <button class="secondary"
@@ -192,6 +212,77 @@ function renderRecords(records) {
 </td>
         </tr>
     `).join("");
+}
+function applyRecordFilters() {
+    const keyword =
+        document.getElementById("searchInput")?.value.trim().toLowerCase() || "";
+
+    const filter =
+    document.querySelector(".filter-chip.active")?.dataset.filter || "all";
+
+    let records = [...allRecords];
+
+    if (keyword) {
+        records = records.filter(record => {
+            const target = [
+                record.customer_name,
+                record.box_sn,
+                record.keypad_sn,
+                record.model_sn,
+                record.dealer_name,
+                record.product_name,
+                record.manufacturer,
+                record.installer
+            ].join(" ").toLowerCase();
+
+            return target.includes(keyword);
+        });
+    }
+
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+
+    if (filter === "today") {
+        records = records.filter(record => record.install_date === todayStr);
+    }
+
+    if (filter === "week") {
+    const day = today.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const mondayStr = monday.toISOString().slice(0, 10);
+    const sundayStr = sunday.toISOString().slice(0, 10);
+
+    records = records.filter(record => {
+        const date = record.install_date || "";
+        return date >= mondayStr && date <= sundayStr;
+    });
+    }
+
+    if (filter === "month") {
+        const monthStr = todayStr.slice(0, 7);
+        records = records.filter(record =>
+            (record.install_date || "").startsWith(monthStr)
+        );
+    }
+
+    if (filter === "saved") {
+        records = records.filter(record =>
+            (record.status || "저장") === "저장"
+        );
+    }
+
+    if (filter === "photoMissing") {
+        records = records.filter(record => (record.photoCount || 0) === 0);
+    }
+
+    renderRecords(records);
 }
 // =============================
 // 장착 상세 보기
@@ -632,3 +723,20 @@ document
         document.getElementById("formTab").classList.remove("hidden");
         document.querySelector('[data-tab="form"]').classList.add("active");
     });
+document.getElementById("searchInput")
+    ?.addEventListener("input", applyRecordFilters);
+
+document.querySelectorAll(".filter-chip").forEach(button => {
+    button.addEventListener("click", () => {
+
+        console.log(button.dataset.filter); 
+
+        document.querySelectorAll(".filter-chip").forEach(btn => {
+            btn.classList.remove("active");
+        });
+
+        button.classList.add("active");
+        applyRecordFilters();
+
+    });
+});    

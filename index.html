@@ -336,17 +336,17 @@
         <h2>장착목록</h2>
         <div class="toolbar">
           <input id="searchInput" placeholder="고객명, BOX S/N, 모델명, 딜러점 검색" />
-          <select id="recordFilter">
-        <option value="all">전체</option>
-        <option value="today">오늘</option>
-        <option value="week">이번주</option>
-        <option value="month">이번달</option>
-        <option value="saved">저장완료</option>
-        <option value="photoMissing">사진 미등록</option>
-    </select>
+          <div class="filter-chips" id="recordFilter">
+            <button type="button" class="filter-chip active" data-filter="all">전체</button>
+            <button type="button" class="filter-chip" data-filter="today">오늘</button>
+            <button type="button" class="filter-chip" data-filter="week">이번주</button>
+            <button type="button" class="filter-chip" data-filter="month">이번달</button>
+            <button type="button" class="filter-chip" data-filter="saved">저장완료</button>
+            <button type="button" class="filter-chip" data-filter="photoMissing">사진 미등록</button>
+          </div>
           <button type="button" id="listNewRecordBtn" class="primary">
-    + 신규 등록
-</button>
+             + 신규 등록
+          </button>
         </div>
 
         <div class="table-wrap">
@@ -357,6 +357,7 @@
                 <th>고객</th>
                 <th>제품/BOX</th>
                 <th>농기계</th>
+                <th>사진</th>
                 <th>상태</th>
                 <th>관리</th>
               </tr>
