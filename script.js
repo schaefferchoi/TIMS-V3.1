@@ -615,3 +615,20 @@ document.getElementById("confSpace").value =
 localStorage.getItem("confSpace") || "";
 
 document.getElementById("newRecordBtn").addEventListener("click", newForm);
+
+document
+    .getElementById("listNewRecordBtn")
+    .addEventListener("click", () => {
+        newForm();
+
+        document.querySelectorAll(".page").forEach(page => {
+            page.classList.add("hidden");
+        });
+
+        document.querySelectorAll(".tab").forEach(tab => {
+            tab.classList.remove("active");
+        });
+
+        document.getElementById("formTab").classList.remove("hidden");
+        document.querySelector('[data-tab="form"]').classList.add("active");
+    });

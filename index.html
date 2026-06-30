@@ -336,7 +336,17 @@
         <h2>장착목록</h2>
         <div class="toolbar">
           <input id="searchInput" placeholder="고객명, BOX S/N, 모델명, 딜러점 검색" />
-          <button id="refreshBtn" class="secondary">새로고침</button>
+          <select id="recordFilter">
+        <option value="all">전체</option>
+        <option value="today">오늘</option>
+        <option value="week">이번주</option>
+        <option value="month">이번달</option>
+        <option value="saved">저장완료</option>
+        <option value="photoMissing">사진 미등록</option>
+    </select>
+          <button type="button" id="listNewRecordBtn" class="primary">
+    + 신규 등록
+</button>
         </div>
 
         <div class="table-wrap">
