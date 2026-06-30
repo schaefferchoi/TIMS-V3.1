@@ -288,7 +288,7 @@ function applyRecordFilters() {
 // 장착 상세 보기
 // =============================
 
-async function viewRecord(id) {
+async function editRecord(id) {
     console.log("보기 클릭:", id);
     const { data, error } = await supabaseClient
         .from("install_records")
@@ -315,6 +315,52 @@ document.querySelectorAll(".tab").forEach(tab => {
 document.getElementById("formTab").classList.remove("hidden");
 document.querySelector('[data-tab="form"]').classList.add("active");
 }
+async function viewRecord(id) {
+    const { data, error } = await supabaseClient
+        .from("install_records")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+    if (error) {
+        console.error(error);
+        alert("데이터 불러오기 실패");
+        return;
+    }
+
+    const modal = document.getElementById("viewModal");
+    modal.dataset.recordId = id;
+
+    const content = document.getElementById("viewContent");
+
+    content.innerHTML = `
+        <div class="view-section">
+            <h4>장착정보</h4>
+            <p><b>장착일:</b> ${data.install_date || "-"}</p>
+            <p><b>품명:</b> ${data.product_name || "-"}</p>
+            <p><b>BOX S/N:</b> ${data.box_sn || "-"}</p>
+            <p><b>KEYPAD S/N:</b> ${data.keypad_sn || "-"}</p>
+            <p><b>딜러점:</b> ${data.dealer_name || "-"}</p>
+            <p><b>장착직원:</b> ${data.installer || "-"}</p>
+        </div>
+
+        <div class="view-section">
+            <h4>농기계 / 고객</h4>
+            <p><b>고객명:</b> ${data.customer_name || "-"}</p>
+            <p><b>연락처:</b> ${data.customer_phone || "-"}</p>
+            <p><b>제조사:</b> ${data.manufacturer || "-"}</p>
+            <p><b>모델명/SN:</b> ${data.model_sn || "-"}</p>
+            <p><b>주소:</b> ${data.customer_address || "-"}</p>
+        </div>
+
+        <div class="view-section">
+            <h4>비고</h4>
+            <p>${data.memo || "-"}</p>
+        </div>
+    `;
+
+    modal.classList.remove("hidden");
+}
 function fillForm(record) {
     const form = document.getElementById("installForm");
 
@@ -331,6 +377,54 @@ function fillForm(record) {
     if (recordIdInput) {
         recordIdInput.value = record.id;
     }
+}
+async function viewRecord(id) {
+
+    const { data, error } = await supabaseClient
+        .from("install_records")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    console.log(data);
+
+const modal = document.getElementById("viewModal");
+   modal.dataset.recordId = id;
+const content = document.getElementById("viewContent");
+
+content.innerHTML = `
+    <div class="view-section">
+        <h4>장착정보</h4>
+        <p><b>장착일:</b> ${data.install_date || "-"}</p>
+        <p><b>품명:</b> ${data.product_name || "-"}</p>
+        <p><b>BOX S/N:</b> ${data.box_sn || "-"}</p>
+        <p><b>KEYPAD S/N:</b> ${data.keypad_sn || "-"}</p>
+        <p><b>딜러점:</b> ${data.dealer_name || "-"}</p>
+        <p><b>장착직원:</b> ${data.installer || "-"}</p>
+    </div>
+
+    <div class="view-section">
+        <h4>농기계 / 고객</h4>
+        <p><b>고객명:</b> ${data.customer_name || "-"}</p>
+        <p><b>연락처:</b> ${data.customer_phone || "-"}</p>
+        <p><b>제조사:</b> ${data.manufacturer || "-"}</p>
+        <p><b>모델명/SN:</b> ${data.model_sn || "-"}</p>
+        <p><b>주소:</b> ${data.customer_address || "-"}</p>
+    </div>
+
+    <div class="view-section">
+        <h4>비고</h4>
+        <p>${data.memo || "-"}</p>
+    </div>
+`;
+
+modal.classList.remove("hidden");
+
 }
 async function deleteRecord(id) {
     console.log("삭제 시도 id:", id);
@@ -740,3 +834,19 @@ document.querySelectorAll(".filter-chip").forEach(button => {
 
     });
 });    
+document.getElementById("closeViewModal")
+    ?.addEventListener("click", () => {
+        document.getElementById("viewModal")?.classList.add("hidden");
+});
+document.getElementById("editViewRecord")
+?.addEventListener("click", async () => {
+
+    const id =
+        document.getElementById("viewModal").dataset.recordId;
+
+    document.getElementById("viewModal")
+        .classList.add("hidden");
+
+    editRecord(id);
+
+});

@@ -411,9 +411,35 @@ class="primary">
 
   <div id="toast" class="toast"></div>
 
+<!-- 보기 모달 -->
+<div id="viewModal" class="modal hidden">
+  <div class="modal-content">
+
+    <div class="modal-header">
+
+    <h3>장착 상세정보</h3>
+
+    <div class="modal-actions">
+        <button id="editViewRecord" class="primary">
+           수정
+        </button>
+
+        <button id="closeViewModal">
+            &times;
+        </button>
+    </div>
+
+</div>
+
+    <div id="viewContent"></div>
+
+  </div>
+</div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
-  <script src="script.js"></script>
+  <script src="script.js"></script>  
+
 </body>
 
 </html>
