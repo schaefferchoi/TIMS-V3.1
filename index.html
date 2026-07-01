@@ -56,6 +56,12 @@
 
         <h2>장착 등록</h2>
 
+         <div class="actions">
+          <button id="saveBtn" type="submit" class="primary">저장</button>
+          <button type="button" class="secondary" id="newRecordBtn" onclick="newForm()">신규 입력</button>
+          <button type="button" class="secondary" id="confluenceBtn">Confluence 생성</button>
+        </div>
+
         <h3>1. 기본 정보</h3>
         <div class="grid three">
           <label>장착일자
@@ -124,20 +130,26 @@
         <div class="grid three">
           <label>기종
             <select name="machine_type">
-              <option></option>
-              <option>트랙터</option>
-              <option>이앙기</option>
-              <option>승용관리기</option>
-              <option>기타</option>
-            </select>
-          </label>
-          <label>제조사
-            <input name="manufacturer" />
-          </label>
-          <label>모델명/S/N
-            <input name="model_sn" />
-          </label>
-        </div>
+            <option></option>
+            <option>트랙터</option>
+            <option>이앙기</option>
+            <option>승용관리기</option>
+            <option>기타</option>
+        </select>
+    </label>
+
+    <label>제조사
+        <input name="manufacturer" />
+    </label>
+
+    <label>모델명/S/N
+        <input name="model_sn" />
+    </label>
+
+    <label>기대번호
+        <input name="machineNumber" placeholder="예) 12345678" />
+    </label>
+</div>
 
         <h3>5. 고객 정보</h3>
         <div class="grid two">
@@ -190,11 +202,6 @@
           <textarea name="memo"></textarea>
         </label>
 
-        <div class="actions">
-          <button id="saveBtn" type="submit" class="primary">저장</button>
-          <button type="button" class="secondary" id="newRecordBtn" onclick="newForm()">신규 입력</button>
-          <button type="button" class="secondary" id="confluenceBtn">Confluence 생성</button>
-        </div>
       
       <h3>8. 사진 등록</h3>
 

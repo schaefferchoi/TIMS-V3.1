@@ -723,8 +723,12 @@ const acuPhotoHtml = makePhotoHtml("acu");
     .replaceAll("-", "")
     .slice(2); 
     
-    const pageTitle =
-    `[${dateCode}] ${data.dealer_region || data.dealer_name || ""} ${data.manufacturer || ""}${data.model_sn || ""}_${data.box_sn || ""}`;
+ const uniqueCode = data.id
+  ? data.id.substring(0, 8)
+  : Date.now();
+
+ const pageTitle =
+  `[${dateCode}] ${data.dealer_region || data.dealer_name || ""} ${data.manufacturer || ""}${data.model_sn || ""}_${data.box_sn || ""}_${uniqueCode}`;
 
     const response = await fetch(
     "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
