@@ -44,3 +44,11 @@
 - ACU 사진 추가
 - Confluence 자동 생성
 - Confluence 사진 자동 출력
+
+##TIMS v4.0
+
+✓ 사진 즉시 등록
+✓ tempPhotos
+✓ Confluence Sync
+✓ Auto Update
+✓ 기대번호
