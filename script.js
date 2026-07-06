@@ -655,128 +655,101 @@ function openPhoto(url) {
 document
 .getElementById("confluenceBtn")
 .addEventListener("click", generateConfluence);
+
 async function generateConfluence() {
-
-    const form = document.getElementById("installForm");
-
-    const data = Object.fromEntries(
-        new FormData(form)
-    );
     const recordId = document.getElementById("recordId").value;
+
+    if (!recordId) {
+        alert("먼저 저장 후 Confluence 동기화를 진행하세요.");
+        return;
+    }
 
     const url = localStorage.getItem("confUrl");
     const email = localStorage.getItem("confEmail");
     const token = localStorage.getItem("confToken");
     const space = localStorage.getItem("confSpace");
 
-const { data: photos, error: photoError } = await supabaseClient
-    .from("install_photos")
-    .select("*")
-    .eq("record_id", recordId)
-    .order("created_at", { ascending: true });
+    const { data: record, error: recordError } = await supabaseClient
+        .from("install_records")
+        .select("*")
+        .eq("id", recordId)
+        .single();
 
-if (photoError) {
-    console.error(photoError);
-}
-function makePhotoHtml(type) {
-    return (photos || [])
-        .filter(photo => photo.photo_type === type)
-        .map(photo => {
-            const imageUrl = photo.photo_url || "";
+    if (recordError) {
+        console.error(recordError);
+        alert("장착정보 조회 실패");
+        return;
+    }
 
-            return `
-                <img src="${imageUrl}" style="
-                    width:45%;
-                    max-width:450px;
-                    margin:10px;
-                    border:1px solid #ccc;
-                    padding:5px;
-                ">
-            `;
-        })
-        .join("");
-}
+    const { data: photos, error: photoError } = await supabaseClient
+        .from("install_photos")
+        .select("*")
+        .eq("record_id", recordId)
+        .order("created_at", { ascending: true });
 
-const installPhotoHtml = makePhotoHtml("install");
-const vehiclePhotoHtml = makePhotoHtml("vehicle");
-const versionPhotoHtml = makePhotoHtml("version");
-const epsPhotoHtml = makePhotoHtml("eps");
-const cpgPhotoHtml = makePhotoHtml("cpg");
-const acuPhotoHtml = makePhotoHtml("acu");
-    const html = `
-<h1>장착 보고서</h1>
+    if (photoError) {
+        console.error(photoError);
+        alert("사진 조회 실패");
+        return;
+    }
 
-<h2>장착 정보</h2>
+    const dateCode = (record.install_date || "")
+        .replaceAll("-", "")
+        .slice(2);
 
-<table border="1" cellspacing="0" cellpadding="5">
+    const uniqueCode = record.id
+        ? record.id.substring(0, 8)
+        : Date.now();
 
-<tr><td>고객명</td><td>${data.customer_name}</td></tr>
-
-<tr><td>딜러점</td><td>${data.dealer_name}</td></tr>
-
-<tr><td>BOX S/N</td><td>${data.box_sn}</td></tr>
-
-<tr><td>KEYPAD S/N</td><td>${data.keypad_sn}</td></tr>
-
-<tr><td>장착일자</td><td>${data.install_date}</td></tr>
-
-</table>
-
-<h2>주요 이슈</h2>
-
-<p>${data.major_issue}</p>
-
-<h2>장착사진</h2>
-
-
-<h2>비고</h2>
-
-<p>${data.memo}</p>
-`;
-
-   const dateCode = (data.install_date || "")
-    .replaceAll("-", "")
-    .slice(2); 
-    
- const uniqueCode = data.id
-  ? data.id.substring(0, 8)
-  : Date.now();
-
- const pageTitle =
-  `[${dateCode}] ${data.dealer_region || data.dealer_name || ""} ${data.manufacturer || ""}${data.model_sn || ""}_${data.box_sn || ""}_${uniqueCode}`;
+    const pageTitle =
+        `[${dateCode}] ${record.dealer_region || record.dealer_name || ""} ${record.manufacturer || ""}${record.model_sn || ""}_${record.box_sn || ""}_${uniqueCode}`;
 
     const response = await fetch(
-    "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
-    {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            url,
-            email,
-            token,
-            space,
-            title: pageTitle,
-            data,
-            photos
-        })
+        "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                url,
+                email,
+                token,
+                space,
+                title: pageTitle,
+                data: record,
+                photos: photos || [],
+                pageId: record.confluence_page_id || null
+            })
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        console.error(result);
+        alert("Confluence 동기화 실패");
+        return;
     }
-);
 
-const result = await response.json();
+    await supabaseClient
+        .from("install_records")
+        .update({
+            confluence_page_id: result.pageId,
+            confluence_page_url: result.url,
+            confluence_status: "confluence_synced",
+            confluence_updated_at: new Date().toISOString(),
+            status: "confluence_synced"
+        })
+        .eq("id", recordId);
 
-console.log(result);
-
-if (response.ok) {
-    alert("Confluence 페이지 생성 완료!");
-} else {
-    alert("생성 실패");
-    console.error(result);
+    alert(
+        result.action === "updated"
+            ? "Confluence 페이지가 수정되었습니다."
+            : "Confluence 페이지가 생성되었습니다."
+    );
 }
 
-    
-}
 document
 .getElementById("saveSettingBtn")
 .addEventListener("click", saveConfluenceSetting);
