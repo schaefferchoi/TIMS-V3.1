@@ -656,6 +656,13 @@ function openPhoto(url) {
 document
 .getElementById("confluenceBtn")
 .addEventListener("click", generateConfluence);
+document
+    .getElementById("openConfluenceBtn")
+    .addEventListener("click", openConfluence);
+
+document
+    .getElementById("linkConfluenceBtn")
+    .addEventListener("click", linkConfluence);
 
 async function generateConfluence() {
     const recordId = document.getElementById("recordId").value;
@@ -758,6 +765,136 @@ if (updateError) {
             ? "Confluence 페이지가 수정되었습니다."
             : "Confluence 페이지가 생성되었습니다."
     );
+}
+
+async function openConfluence() {
+    const recordId = document.getElementById("recordId").value;
+
+    if (!recordId) {
+        alert("먼저 저장된 장착기록을 선택하세요.");
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from("install_records")
+        .select("confluence_page_url")
+        .eq("id", recordId)
+        .single();
+
+    if (error || !data?.confluence_page_url) {
+        alert("연결된 Confluence 페이지가 없습니다.");
+        return;
+    }
+
+    window.open(data.confluence_page_url, "_blank");
+}
+
+async function linkConfluence() {
+
+    const recordId = document.getElementById("recordId").value;
+
+    if (!recordId) {
+        alert("먼저 저장된 장착기록을 선택하세요.");
+        return;
+    }
+
+    const input = prompt(
+        "Confluence URL 또는 Page ID를 입력하세요."
+    );
+
+    if (!input) return;
+
+    let pageId = null;
+    let pageUrl = null;
+
+    // URL 입력
+    if (input.startsWith("http")) {
+
+        pageUrl = input;
+
+        const match =
+            input.match(/pageId=(\d+)/) ||
+            input.match(/\/pages\/(\d+)/);
+
+        if (match) {
+            pageId = match[1];
+        }
+
+    } else {
+
+        // Page ID만 입력
+        pageId = input.trim();
+
+        pageUrl =
+            `${localStorage.getItem("confUrl")}` +
+            `/wiki/pages/viewpage.action?pageId=${pageId}`;
+    }
+
+    if (!pageId) {
+        alert("Page ID를 찾을 수 없습니다.");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from("install_records")
+        .update({
+            confluence_page_id: pageId,
+            confluence_page_url: pageUrl,
+            confluence_status: true,
+            confluence_updated_at: new Date().toISOString()
+        })
+        .eq("id", recordId);
+
+    if (error) {
+        console.error(error);
+        alert("Confluence 연결 실패");
+        return;
+    }
+
+    alert("Confluence 페이지가 연결되었습니다.");
+}
+
+async function linkConfluence() {
+    const recordId = document.getElementById("recordId").value;
+
+    if (!recordId) {
+        alert("먼저 저장된 장착기록을 선택하세요.");
+        return;
+    }
+
+    const input = prompt("Confluence 페이지 URL 또는 Page ID를 입력하세요.");
+
+    if (!input) return;
+
+    const pageIdMatch = input.match(/\/pages\/(\d+)|pageId=(\d+)|^(\d+)$/);
+    const pageId = pageIdMatch?.[1] || pageIdMatch?.[2] || pageIdMatch?.[3];
+
+    if (!pageId) {
+        alert("Page ID를 찾을 수 없습니다.");
+        return;
+    }
+
+    const pageUrl = input.startsWith("http")
+        ? input
+        : `https://tymic1.atlassian.net/wiki/pages/viewpage.action?pageId=${pageId}`;
+
+    const { error } = await supabaseClient
+        .from("install_records")
+        .update({
+            confluence_page_id: pageId,
+            confluence_page_url: pageUrl,
+            confluence_status: true,
+            confluence_updated_at: new Date().toISOString()
+        })
+        .eq("id", recordId);
+
+    if (error) {
+        console.error(error);
+        alert("Confluence 연결 실패");
+        return;
+    }
+
+    alert("Confluence 페이지가 연결되었습니다.");
 }
 
 document
