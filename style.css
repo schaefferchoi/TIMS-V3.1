@@ -546,3 +546,14 @@ th {
     background: #123b67 !important;
     white-space: nowrap;
 }
+.grid.three {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 768px) {
+  .grid.three {
+    grid-template-columns: 1fr;
+  }
+}

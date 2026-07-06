@@ -99,16 +99,19 @@ if (record.id) {
     result = await supabaseClient
         .from("install_records")
         .update(record)
-        .eq("id", record.id);
+        .eq("id", record.id)
+        .select()
+        .single();
 
 } else {
 
     const { id, ...insertRecord } = record;
 
-    result = await supabaseClient
-        .from("install_records")
-        .insert([insertRecord]);
-
+   result = await supabaseClient
+     .from("install_records")
+     .insert([insertRecord])
+     .select()
+     .single();
 }
 
 const { data, error } = result;
@@ -120,9 +123,107 @@ const { data, error } = result;
     }
 
     console.log(data);
-    alert("저장 완료");
-    return true;
+
+const savedRecord = Array.isArray(data) ? data[0] : data;
+
+if (savedRecord && savedRecord.id) {
+    document.getElementById("recordId").value = savedRecord.id;
 }
+
+await uploadTempPhotos(savedRecord.id);
+
+alert("저장 완료");
+return savedRecord;
+}
+
+async function uploadTempPhotos(recordId) {
+    if (!recordId) return;
+
+    for (const photoType in tempPhotos) {
+        for (const file of tempPhotos[photoType]) {
+            const ext = file.name.split(".").pop().toLowerCase();
+            const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
+
+            const { error: uploadError } = await supabaseClient.storage
+                .from("install-photos")
+                .upload(fileName, file);
+
+            if (uploadError) {
+                console.error(uploadError);
+                alert("사진 업로드 실패");
+                return;
+            }
+
+            const { data: publicUrlData } = supabaseClient.storage
+                .from("install-photos")
+                .getPublicUrl(fileName);
+
+            const { error: insertError } = await supabaseClient
+                .from("install_photos")
+                .insert({
+                    record_id: recordId,
+                    photo_type: photoType,
+                    photo_path: fileName,
+                    photo_url: publicUrlData.publicUrl
+                });
+
+            if (insertError) {
+                console.error(insertError);
+                alert("사진 정보 저장 실패");
+                return;
+            }
+        }
+    }
+
+    tempPhotos = {
+        install: [],
+        vehicle: [],
+        version: [],
+        eps: [],
+        cpg: [],
+        acu: []
+    };
+
+    await loadPhotos();
+}
+
+function renderTempPhotos(photoType) {
+    const photoAreaMap = {
+        install: "installPhotos",
+        vehicle: "vehiclePhotos",
+        version: "versionPhotos",
+        eps: "epsPhotos",
+        cpg: "cpgPhotos",
+        acu: "acuPhotos"
+    };
+
+    const target = document.getElementById(photoAreaMap[photoType]);
+    if (!target) return;
+
+    target.innerHTML = "";
+
+    tempPhotos[photoType].forEach((file, index) => {
+        const imageUrl = URL.createObjectURL(file);
+
+        target.innerHTML += `
+            <div class="photo-card">
+                <img src="${imageUrl}" alt="사진">
+                <button
+                    type="button"
+                    class="danger"
+                    onclick="removeTempPhoto('${photoType}', ${index})">
+                    삭제
+                </button>
+            </div>
+        `;
+    });
+}
+
+function removeTempPhoto(photoType, index) {
+    tempPhotos[photoType].splice(index, 1);
+    renderTempPhotos(photoType);
+}
+
 document.getElementById("installForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -378,54 +479,6 @@ function fillForm(record) {
         recordIdInput.value = record.id;
     }
 }
-async function viewRecord(id) {
-
-    const { data, error } = await supabaseClient
-        .from("install_records")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-    if (error) {
-        console.error(error);
-        return;
-    }
-
-    console.log(data);
-
-const modal = document.getElementById("viewModal");
-   modal.dataset.recordId = id;
-const content = document.getElementById("viewContent");
-
-content.innerHTML = `
-    <div class="view-section">
-        <h4>장착정보</h4>
-        <p><b>장착일:</b> ${data.install_date || "-"}</p>
-        <p><b>품명:</b> ${data.product_name || "-"}</p>
-        <p><b>BOX S/N:</b> ${data.box_sn || "-"}</p>
-        <p><b>KEYPAD S/N:</b> ${data.keypad_sn || "-"}</p>
-        <p><b>딜러점:</b> ${data.dealer_name || "-"}</p>
-        <p><b>장착직원:</b> ${data.installer || "-"}</p>
-    </div>
-
-    <div class="view-section">
-        <h4>농기계 / 고객</h4>
-        <p><b>고객명:</b> ${data.customer_name || "-"}</p>
-        <p><b>연락처:</b> ${data.customer_phone || "-"}</p>
-        <p><b>제조사:</b> ${data.manufacturer || "-"}</p>
-        <p><b>모델명/SN:</b> ${data.model_sn || "-"}</p>
-        <p><b>주소:</b> ${data.customer_address || "-"}</p>
-    </div>
-
-    <div class="view-section">
-        <h4>비고</h4>
-        <p>${data.memo || "-"}</p>
-    </div>
-`;
-
-modal.classList.remove("hidden");
-
-}
 async function deleteRecord(id) {
     console.log("삭제 시도 id:", id);
 
@@ -449,71 +502,33 @@ async function deleteRecord(id) {
     await loadRecords();
 }
 
+let tempPhotos = {
+    install: [],
+    vehicle: [],
+    version: [],
+    eps: [],
+    cpg: [],
+    acu: []
+};
+
 async function uploadPhotoByType(photoType, inputId) {
-    let recordId = document.getElementById("recordId").value;
-
-if (!recordId) {
-    const ok = confirm("장착정보가 아직 저장되지 않았습니다. 저장 후 계속하시겠습니까?");
-    if (!ok) return;
-
-    await saveRecord();
-
-    recordId = document.getElementById("recordId").value;
-
-    if (!recordId) {
-        alert("장착정보 저장에 실패했습니다.");
-        return;
-    }
-}
-    if (!recordId) {
-        alert("먼저 장착정보를 저장하세요.");
-        return;
-    }
 
     const input = document.getElementById(inputId);
 
-    if (!input || !input.files.length) {
-        alert("사진을 선택하세요.");
+    if (!input || input.files.length === 0) {
         return;
     }
 
+    // 선택한 사진을 tempPhotos에 저장
     for (const file of input.files) {
-        const ext = file.name.split(".").pop().toLowerCase();
-        const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
-
-        const { error: uploadError } = await supabaseClient.storage
-            .from("install-photos")
-            .upload(fileName, file);
-
-        if (uploadError) {
-            console.error(uploadError);
-            alert("사진 업로드 실패");
-            return;
-        }
-
-        const { data: publicUrlData } = supabaseClient.storage
-            .from("install-photos")
-            .getPublicUrl(fileName);
-
-        const { error: insertError } = await supabaseClient
-            .from("install_photos")
-            .insert({
-                record_id: recordId,
-                photo_type: photoType,
-                photo_path: fileName,
-                photo_url: publicUrlData.publicUrl
-            });
-
-        if (insertError) {
-            console.error(insertError);
-            alert("사진 정보 저장 실패");
-            return;
-        }
+        tempPhotos[photoType].push(file);
     }
 
+    // 미리보기 갱신
+    renderTempPhotos(photoType);
+
+    // 같은 파일을 다시 선택할 수 있도록 초기화
     input.value = "";
-    alert("사진 업로드 완료");
-    await loadPhotos();
 }
 
 async function loadPhotos() {
