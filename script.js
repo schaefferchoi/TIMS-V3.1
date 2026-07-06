@@ -77,6 +77,7 @@ function collectFormData() {
         customer_phone: formData.get("customer_phone") || null,
         customer_address: formData.get("customer_address") || null,
         education_date: formData.get("education_date") || null,
+        education_staff: formData.get("education_staff") || null,
         farm_scale: formData.get("farm_scale") || null,
         main_crop: formData.get("main_crop") || null,
         memo: formData.get("memo") || null,
@@ -701,8 +702,8 @@ async function generateConfluence() {
         ? record.id.substring(0, 8)
         : Date.now();
 
-    const pageTitle =
-        `[${dateCode}] ${record.dealer_region || record.dealer_name || ""} ${record.manufacturer || ""}${record.model_sn || ""}_${record.box_sn || ""}_${uniqueCode}`;
+   const pageTitle =
+    `[${dateCode}] ${record.dealer_region || record.dealer_name || ""} ${record.manufacturer || ""}${record.model_sn || ""}_${record.box_sn || ""}_${uniqueCode}`;
 
     const response = await fetch(
         "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
@@ -732,16 +733,25 @@ async function generateConfluence() {
         return;
     }
 
-    await supabaseClient
-        .from("install_records")
-        .update({
-            confluence_page_id: result.pageId,
-            confluence_page_url: result.url,
-            confluence_status: "confluence_synced",
-            confluence_updated_at: new Date().toISOString(),
-            status: "confluence_synced"
-        })
-        .eq("id", recordId);
+  const { data: updateData, error: updateError } = await supabaseClient
+    .from("install_records")
+    .update({
+        confluence_page_id: result.pageId,
+        confluence_page_url: result.url,
+        confluence_status: true,
+        confluence_updated_at: new Date().toISOString()
+    })
+    .eq("id", recordId)
+    .select();
+
+console.log("UPDATE DATA:", updateData);
+console.log("UPDATE ERROR:", updateError);
+
+if (updateError) {
+    alert("Confluence 정보 저장 실패 : " + updateError.message);
+    console.error(updateError);
+    return;
+}
 
     alert(
         result.action === "updated"
@@ -753,6 +763,16 @@ async function generateConfluence() {
 document
 .getElementById("saveSettingBtn")
 .addEventListener("click", saveConfluenceSetting);
+
+function setDefaultVersions() {
+    document.getElementById("ad_a1_software").value = "1.6.2.2";
+    document.getElementById("coa_fw").value = "106";
+    document.getElementById("ins_ver").value = "1.6.7";
+    document.getElementById("moa_fw").value = "1.71.0";
+    document.getElementById("cpg_fw").value = "1.0.3.0";
+    document.getElementById("adc2").value = "";
+    document.getElementById("cpad_sw").value = "1.6.1.9";
+}
 
 function saveConfluenceSetting(){
 
@@ -791,12 +811,16 @@ localStorage.getItem("confToken") || "";
 document.getElementById("confSpace").value =
 localStorage.getItem("confSpace") || "";
 
-document.getElementById("newRecordBtn").addEventListener("click", newForm);
+document.getElementById("newRecordBtn").addEventListener("click", () => {
+    newForm();
+    setDefaultVersions();
+});
 
 document
     .getElementById("listNewRecordBtn")
     .addEventListener("click", () => {
         newForm();
+        setDefaultVersions();
 
         document.querySelectorAll(".page").forEach(page => {
             page.classList.add("hidden");
