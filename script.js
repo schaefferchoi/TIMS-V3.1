@@ -278,42 +278,62 @@ function renderRecords(records) {
     if (!records.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="empty">저장된 데이터가 없습니다.</td>
+                <td colspan="8" class="empty">저장된 데이터가 없습니다.</td>
             </tr>
         `;
         return;
     }
 
-    tbody.innerHTML = records.map(record => `
-        <tr>
-            <td>${record.install_date || "-"}</td>
-            <td>${record.customer_name || "-"}</td>
-            <td>
-                ${record.product_name || "-"}<br>
-                <small>BOX: ${record.box_sn || "-"}</small>
-            </td>
-            <td>
-                ${record.manufacturer || ""} ${record.model_sn || ""}
-            </td>
+    tbody.innerHTML = records.map(record => {
+        const confluenceClick = record.confluence_page_url
+            ? "openConfluenceById('" + record.id + "')"
+            : "linkConfluenceById('" + record.id + "')";
 
-            <td>${record.photoCount || 0} / 8</td>
+        const confluenceText = record.confluence_page_url
+            ? "🟢 열기"
+            : "🔴 연결";
 
-            <td>${record.status || "저장"}</td>
-            <td>
-    <button class="secondary"
-        type="button"
-        onclick="viewRecord('${record.id}')">
-        보기
-    </button>
+        return `
+            <tr>
+                <td>${record.install_date || "-"}</td>
+                <td>${record.customer_name || "-"}</td>
+                <td>
+                    ${record.product_name || "-"}<br>
+                    <small>BOX: ${record.box_sn || "-"}</small>
+                </td>
+                <td>
+                    ${record.manufacturer || ""} ${record.model_sn || ""}
+                </td>
+                <td>${record.photoCount || 0} / 8</td>
+                <td>${record.status || "저장"}</td>
 
-    <button class="danger"
-        type="button"
-        onclick="deleteRecord('${record.id}')">
-        삭제
-    </button>
-</td>
-        </tr>
-    `).join("");
+                <td>
+                    <button
+                        type="button"
+                        class="secondary"
+                        onclick="${confluenceClick}">
+                        ${confluenceText}
+                    </button>
+                </td>
+
+                <td>
+                    <button
+                        class="secondary"
+                        type="button"
+                        onclick="viewRecord('${record.id}')">
+                        보기
+                    </button>
+
+                    <button
+                        class="danger"
+                        type="button"
+                        onclick="deleteRecord('${record.id}')">
+                        삭제
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join("");
 }
 function applyRecordFilters() {
     const keyword =
@@ -663,6 +683,9 @@ document
 document
     .getElementById("linkConfluenceBtn")
     .addEventListener("click", linkConfluence);
+document
+    .getElementById("importConfluenceBtn")
+    .addEventListener("click", importConfluence);    
 
 async function generateConfluence() {
     const recordId = document.getElementById("recordId").value;
@@ -854,47 +877,59 @@ async function linkConfluence() {
     alert("Confluence 페이지가 연결되었습니다.");
 }
 
-async function linkConfluence() {
+async function importConfluence() {
+
     const recordId = document.getElementById("recordId").value;
 
     if (!recordId) {
-        alert("먼저 저장된 장착기록을 선택하세요.");
+        alert("먼저 장착기록을 선택하세요.");
         return;
     }
 
-    const input = prompt("Confluence 페이지 URL 또는 Page ID를 입력하세요.");
+    const url = localStorage.getItem("confUrl");
+    const email = localStorage.getItem("confEmail");
+    const token = localStorage.getItem("confToken");
 
-    if (!input) return;
-
-    const pageIdMatch = input.match(/\/pages\/(\d+)|pageId=(\d+)|^(\d+)$/);
-    const pageId = pageIdMatch?.[1] || pageIdMatch?.[2] || pageIdMatch?.[3];
-
-    if (!pageId) {
-        alert("Page ID를 찾을 수 없습니다.");
-        return;
-    }
-
-    const pageUrl = input.startsWith("http")
-        ? input
-        : `https://tymic1.atlassian.net/wiki/pages/viewpage.action?pageId=${pageId}`;
-
-    const { error } = await supabaseClient
+    const { data, error } = await supabaseClient
         .from("install_records")
-        .update({
-            confluence_page_id: pageId,
-            confluence_page_url: pageUrl,
-            confluence_status: true,
-            confluence_updated_at: new Date().toISOString()
-        })
-        .eq("id", recordId);
+        .select("confluence_page_id")
+        .eq("id", recordId)
+        .single();
 
-    if (error) {
-        console.error(error);
-        alert("Confluence 연결 실패");
+    if (error || !data?.confluence_page_id) {
+        alert("연결된 Confluence 페이지가 없습니다.");
         return;
     }
 
-    alert("Confluence 페이지가 연결되었습니다.");
+    const response = await fetch(
+        "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/import-confluence",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                url,
+                email,
+                token,
+                pageId: data.confluence_page_id
+            })
+        }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        console.error(result);
+        alert("Confluence 가져오기 실패");
+        return;
+    }
+
+    console.log("가져온 Confluence:", result);
+    console.log("제목:", result.title);
+    console.log("본문 HTML:", result.html);
+
+    alert("Confluence 가져오기 성공. 콘솔을 확인하세요.");
 }
 
 document
@@ -1003,3 +1038,30 @@ document.getElementById("editViewRecord")
     editRecord(id);
 
 });
+window.openConfluenceById = async function(recordId) {
+    console.log("목록에서 Confluence 열기:", recordId);
+
+    const { data, error } = await supabaseClient
+        .from("install_records")
+        .select("confluence_page_url")
+        .eq("id", recordId)
+        .single();
+
+    console.log("Confluence URL:", data, error);
+
+    if (error || !data?.confluence_page_url) {
+        alert("연결된 Confluence 페이지가 없습니다.");
+        return;
+    }
+
+    window.open(data.confluence_page_url, "_blank");
+};
+
+window.linkConfluenceById = async function(recordId) {
+    console.log("목록에서 Confluence 생성:", recordId);
+
+    document.getElementById("recordId").value = recordId;
+
+    await generateConfluence();
+    await loadRecords();
+};
