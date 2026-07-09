@@ -305,7 +305,6 @@ function renderRecords(records) {
                     ${record.manufacturer || ""} ${record.model_sn || ""}
                 </td>
                 <td>${record.photoCount || 0} / 8</td>
-                <td>${record.status || "저장"}</td>
 
                 <td>
                     <button
@@ -685,7 +684,7 @@ document
     .addEventListener("click", linkConfluence);
 document
     .getElementById("importConfluenceBtn")
-    .addEventListener("click", importConfluence);    
+    .addEventListener("click", showImportModal);
 
 async function generateConfluence() {
     const recordId = document.getElementById("recordId").value;
@@ -878,28 +877,37 @@ async function linkConfluence() {
 }
 
 async function importConfluence() {
+    console.log("가져오기 버튼 클릭됨");
+    const input = document
+        .getElementById("importConfluenceInput")
+        .value
+        .trim();
 
-    const recordId = document.getElementById("recordId").value;
-
-    if (!recordId) {
-        alert("먼저 장착기록을 선택하세요.");
+    if (!input) {
+        alert("Confluence URL 또는 Page ID를 입력하세요.");
         return;
+    }
+
+    let pageId = input;
+
+    // URL이면 Page ID 추출
+    if (input.startsWith("http")) {
+
+        const match =
+            input.match(/pageId=(\d+)/) ||
+            input.match(/\/pages\/(\d+)/);
+
+        if (!match) {
+            alert("Page ID를 찾을 수 없습니다.");
+            return;
+        }
+
+        pageId = match[1];
     }
 
     const url = localStorage.getItem("confUrl");
     const email = localStorage.getItem("confEmail");
     const token = localStorage.getItem("confToken");
-
-    const { data, error } = await supabaseClient
-        .from("install_records")
-        .select("confluence_page_id")
-        .eq("id", recordId)
-        .single();
-
-    if (error || !data?.confluence_page_id) {
-        alert("연결된 Confluence 페이지가 없습니다.");
-        return;
-    }
 
     const response = await fetch(
         "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/import-confluence",
@@ -912,7 +920,7 @@ async function importConfluence() {
                 url,
                 email,
                 token,
-                pageId: data.confluence_page_id
+                pageId
             })
         }
     );
@@ -925,13 +933,53 @@ async function importConfluence() {
         return;
     }
 
-    console.log("가져온 Confluence:", result);
-    console.log("제목:", result.title);
-    console.log("본문 HTML:", result.html);
+const data = parseConfluenceTable(result.html);
 
-    alert("Confluence 가져오기 성공. 콘솔을 확인하세요.");
+console.log(data);
+
+const form = document.getElementById("installForm");
+
+const importMap = {
+    product_name: "품명",
+    box_sn: "BOX S/N",
+    keypad_sn: "KEYPAD S/N",
+    dealer_name: "딜러점(지역)",
+    representative: "대표",
+    install_subject: "장착 주체",
+    installer: "장착 직원",
+    spline: "스플라인",
+    bracket: "브라켓",
+
+    machine_type: "기종",
+    manufacturer: "제조사",
+    model_sn: "모델명 (S/N)",
+    customer_name: "고객명",
+    customer_phone: "연락처",
+    customer_address: "주소",
+    education_date: "교육 일자",
+    education_staff: "교육 직원",
+    farm_scale: "농사 규모",
+    main_crop: "주요 작물"
+};
+
+Object.entries(importMap).forEach(([fieldName, label]) => {
+    const input = form.elements[fieldName];
+    if (!input) return;
+
+    const value = data[label] || "";
+
+console.log(fieldName, label, "=>", value);
+
+if (value) {
+    input.value = value;
 }
+});
+    
+    hideImportModal();
 
+    alert("Confluence 페이지를 성공적으로 가져왔습니다.");
+
+}
 document
 .getElementById("saveSettingBtn")
 .addEventListener("click", saveConfluenceSetting);
@@ -1065,3 +1113,114 @@ window.linkConfluenceById = async function(recordId) {
     await generateConfluence();
     await loadRecords();
 };
+// =============================
+// Confluence 가져오기 모달
+// =============================
+
+function showImportModal() {
+    document
+        .getElementById("importModal")
+        .classList.remove("hidden");
+
+    document
+        .getElementById("importConfluenceInput")
+        .value = "";
+
+    document
+        .getElementById("importConfluenceInput")
+        .focus();
+}
+
+function hideImportModal() {
+    document
+        .getElementById("importModal")
+        .classList.add("hidden");
+}
+
+document
+    .getElementById("cancelImportConfluence")
+    .addEventListener("click", hideImportModal);
+
+document
+    .getElementById("confirmImportConfluence")
+    .addEventListener("click", importConfluence);    
+function findValue(doc, label) {
+
+    const strongs = doc.querySelectorAll("strong");
+
+    for (const strong of strongs) {
+
+        if (strong.textContent.trim() !== label) continue;
+
+        const td = strong.closest("td");
+
+        if (!td) return "";
+
+        const valueTd = td.nextElementSibling;
+
+        if (!valueTd) return "";
+
+        return valueTd.textContent.trim();
+    }
+
+    return "";
+}
+function parseConfluenceTable(html) {
+
+    const doc = new DOMParser().parseFromString(html, "text/html");
+
+    const tables = [...doc.querySelectorAll("table")];
+
+    const result = {};
+
+    tables.forEach(table => {
+
+        const rows = [...table.querySelectorAll("tr")];
+
+        for (let r = 0; r < rows.length - 1; r += 2) {
+
+            const headerCells = [...rows[r].querySelectorAll("td,th")];
+            const valueCells = [...rows[r + 1].querySelectorAll("td")];
+
+            headerCells.forEach((cell, i) => {
+
+                const key = cell.textContent
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                const value = valueCells[i]
+                    ? valueCells[i].textContent.trim()
+                    : "";
+
+                if (key) {
+                    result[key] = value;
+                }
+
+            });
+
+        }
+
+    });
+
+    return result;
+}
+const installerButtons =
+    document.querySelectorAll("#installerButtons button");
+
+installerButtons.forEach(button=>{
+
+    button.addEventListener("click",()=>{
+
+        button.classList.toggle("active");
+
+        const selected =
+            [...installerButtons]
+            .filter(btn=>btn.classList.contains("active"))
+            .map(btn=>btn.dataset.name);
+
+        document.getElementById("installer").value =
+            selected.join(", ");
+
+    });
+
+});

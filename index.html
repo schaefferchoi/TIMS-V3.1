@@ -73,14 +73,6 @@
           <label>주문접수일
             <input type="date" name="order_date" />
           </label>
-          <label>장착상태
-            <select name="status">
-              <option value="draft">임시저장</option>
-              <option value="installed">장착완료</option>
-              <option value="educated">교육완료</option>
-              <option value="confluence_synced">Confluence 동기화 완료</option>
-            </select>
-          </label>
         </div>
 
         <h3>2. 거래처 정보</h3>
@@ -115,10 +107,22 @@
             <input name="keypad_sn" />
           </label>
           <label>스플라인
-            <input name="spline" />
+            <select name="spline">
+              <option value="">선택</option>
+              <option value="18T">18T</option>
+              <option value="36T">36T</option>
+              <option value="36T.K">36T.K</option>
+              <option value="케아24A">케아24A</option>
+           </select>
           </label>
           <label>브라켓
-            <input name="bracket" />
+            <select name="bracket">
+              <option value="">선택</option>
+              <option value="범용">범용</option>
+              <option value="밀착형(3점고정)">밀착형(3점고정)</option>
+              <option value="핀 타입1">핀 타입1</option>
+              <option value="PRJ전용">PRJ전용</option>
+            </select>
           </label>
           <label>후방카메라
             <select name="rear_camera">
@@ -145,7 +149,7 @@
         <input name="manufacturer" />
     </label>
 
-    <label>모델명/S/N
+    <label>모델명
         <input name="model_sn" />
     </label>
 
@@ -233,13 +237,30 @@
         <h3>7. 작업자 및 이슈</h3>
         <div class="grid two">
           <label>장착주체
-            <input name="install_subject" placeholder="TYMICT / 대리점 / 기타" />
-          </label>
-          <label>장착직원
-            <input name="installer" placeholder="예: 최병진, 홍길동" />
-          </label>
-        </div>
+              <select name="install_subject">
+                <option value="">선택</option>
+                <option value="TYMICT">TYMICT</option>
+                <option value="대리점">대리점</option>
+                <option value="기타">기타</option>
+             </select>
+         </label>
+         </div>
+         <div>
+         <label>장착직원</label>
 
+        <div id="installerButtons" class="installer-buttons">
+            <button type="button" data-name="방혜환">방혜환</button>
+            <button type="button" data-name="유진근">유진근</button>
+            <button type="button" data-name="김재우">김재우</button>
+
+            <button type="button" data-name="최병진">최병진</button>
+            <button type="button" data-name="임우진">임우진</button>
+            <button type="button" data-name="최성원">최성원</button>
+
+            <button type="button" data-name="전충만">전충만</button>
+        </div>
+        <input type="hidden" id="installer" name="installer">
+</div>
         <label>주요 이슈
           <textarea name="major_issue"></textarea>
         </label>
@@ -462,6 +483,29 @@ class="primary">
     <div id="viewContent"></div>
 
   </div>
+</div>
+
+<!-- Confluence 가져오기 모달 -->
+<div id="importModal" class="modal hidden">
+    <div class="modal-box">
+        <h3>Confluence 가져오기</h3>
+
+        <label>Confluence URL 또는 Page ID</label>
+        <input
+            type="text"
+            id="importConfluenceInput"
+            placeholder="예: 2336030905 또는 Confluence URL">
+
+        <div class="modal-actions">
+            <button type="button" id="confirmImportConfluence" class="primary">
+                가져오기
+            </button>
+
+            <button type="button" id="cancelImportConfluence">
+                취소
+            </button>
+        </div>
+    </div>
 </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

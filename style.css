@@ -557,3 +557,60 @@ th {
     grid-template-columns: 1fr;
   }
 }
+/* ===========================
+   Confluence Import Modal
+=========================== */
+
+#importModal .modal-box{
+    width:500px;
+    max-width:90%;
+}
+
+#importModal label{
+    display:block;
+    margin:16px 0 8px;
+    font-weight:600;
+}
+
+#importModal input{
+    width:100%;
+    padding:12px;
+    border:1px solid #d0d7de;
+    border-radius:8px;
+    font-size:15px;
+    box-sizing:border-box;
+}
+
+#importModal .modal-actions{
+    margin-top:20px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+}
+.installer-buttons{
+
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-bottom:10px;
+
+}
+
+.installer-buttons button{
+
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    background:white;
+    cursor:pointer;
+    font-size:15px;
+
+}
+
+.installer-buttons button.active{
+
+    background:#2563eb;
+    color:white;
+    border-color:#2563eb;
+
+}
