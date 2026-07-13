@@ -728,6 +728,44 @@ class="primary">
 
   <div id="toast" class="toast"></div>
 
+<!-- 저장 확인 모달 -->
+<div id="saveConfirmModal" class="modal hidden">
+  <div class="modal-box save-confirm-box">
+
+    <h3>저장되지 않은 내용이 있습니다.</h3>
+
+    <p class="save-confirm-message">
+      저장 후 다른 화면으로 이동하시겠습니까?
+    </p>
+
+    <div class="modal-actions">
+      <button
+        type="button"
+        id="saveAndMoveBtn"
+        class="primary"
+      >
+        저장 후 이동
+      </button>
+
+      <button
+        type="button"
+        id="moveWithoutSaveBtn"
+        class="secondary"
+      >
+        저장 안 하고 이동
+      </button>
+
+      <button
+        type="button"
+        id="cancelMoveBtn"
+      >
+        취소
+      </button>
+    </div>
+
+  </div>
+</div>
+
 <!-- 보기 모달 -->
 <div id="viewModal" class="modal hidden">
   <div class="modal-content">

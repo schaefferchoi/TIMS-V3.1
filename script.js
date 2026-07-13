@@ -1,6 +1,9 @@
 // TIM v2.1
 // Tab Controller
 
+let formChanged = false;
+let pendingTabName = null;
+
 document.addEventListener("DOMContentLoaded", () => {
 
     const tabs = document.querySelectorAll(".tab");
@@ -35,20 +38,111 @@ document.addEventListener("DOMContentLoaded", () => {
 
     }
 
-    tabs.forEach(tab=>{
+   tabs.forEach(tab => {
 
-        tab.addEventListener("click",()=>{
+    tab.addEventListener("click", () => {
 
-            const tabName =
-                tab.dataset.tab;
+        const tabName = tab.dataset.tab;
 
+        // 장착등록 탭 자체를 누르는 경우 바로 이동
+        if (tabName === "form") {
             showTab(tabName);
+            return;
+        }
 
-        });
+        // 입력한 내용이 없으면 바로 이동
+        if (!formChanged) {
+            showTab(tabName);
+            return;
+        }
+
+        // 이동할 탭을 기억하고 저장 확인 모달 표시
+        pendingTabName = tabName;
+
+        document
+            .getElementById("saveConfirmModal")
+            ?.classList.remove("hidden");
 
     });
 
+});
+
     showTab("dashboard");
+
+const installForm = document.getElementById("installForm");
+
+installForm?.addEventListener("input", () => {
+    formChanged = true;
+});
+
+installForm?.addEventListener("change", () => {
+    formChanged = true;
+});
+
+const saveConfirmModal =
+    document.getElementById("saveConfirmModal");
+
+const closeSaveConfirmModal = () => {
+    saveConfirmModal?.classList.add("hidden");
+};
+
+// 저장 후 이동
+document
+    .getElementById("saveAndMoveBtn")
+    ?.addEventListener("click", async () => {
+
+        try {
+            const record = collectFormData();
+            const savedRecord = await saveRecord(record);
+
+            if (!savedRecord) {
+                return;
+            }
+
+            closeSaveConfirmModal();
+
+            if (pendingTabName) {
+                const targetTab = pendingTabName;
+                pendingTabName = null;
+                showTab(targetTab);
+            }
+
+        } catch (error) {
+            console.error("저장 후 이동 실패:", error);
+            alert("저장 중 오류가 발생했습니다.");
+        }
+
+    });
+
+// 저장하지 않고 이동
+document
+    .getElementById("moveWithoutSaveBtn")
+    ?.addEventListener("click", () => {
+
+        closeSaveConfirmModal();
+
+        if (pendingTabName) {
+            const targetTab = pendingTabName;
+            pendingTabName = null;
+            showTab(targetTab);
+        }
+
+        /*
+         * 입력값은 화면에 그대로 유지한다.
+         * 다시 장착등록으로 돌아오면 계속 작성할 수 있고,
+         * formChanged도 true로 유지된다.
+         */
+    });
+
+// 이동 취소
+document
+    .getElementById("cancelMoveBtn")
+    ?.addEventListener("click", () => {
+
+        pendingTabName = null;
+        closeSaveConfirmModal();
+
+    });
 
 // 초기 상태 설정
 toggleMachineSection();
@@ -271,6 +365,8 @@ if (savedRecord && savedRecord.id) {
 }
 
 await uploadTempPhotos(savedRecord.id);
+
+formChanged = false;
 
 alert("저장 완료");
 return savedRecord;
@@ -797,6 +893,7 @@ function renderPhotos(photos) {
 function newForm() {
     const form = document.getElementById("installForm");
     if (form) form.reset();
+    formChanged = false;
 
     const recordId = document.getElementById("recordId");
     if (recordId) recordId.value = "";
