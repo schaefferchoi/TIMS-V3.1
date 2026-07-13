@@ -60,42 +60,174 @@ document
 });
 function collectFormData() {
     const form = document.getElementById("installForm");
-    const formData = new FormData(form);
 
-    const recordId = document.getElementById("recordId").value;
-    console.log("recordId =", recordId);
+    if (!form) {
+        throw new Error("장착등록 폼을 찾을 수 없습니다.");
+    }
+
+    const formData = new FormData(form);
+    const recordId =
+        document.getElementById("recordId")?.value.trim() || "";
+
+    const productName =
+        String(formData.get("product_name") || "").trim();
+
+    const isPlusModel =
+        productName === "AD100 PLUS" ||
+        productName === "AD100W PLUS";
+
+    const toNullableInteger = (value) => {
+        const text = String(value || "").trim();
+
+        if (text === "") {
+            return null;
+        }
+
+        const number = Number.parseInt(text, 10);
+
+        return Number.isNaN(number) ? null : number;
+    };
 
     return {
         id: recordId || undefined,
-        install_date: formData.get("install_date") || null,
-        dealer_name: formData.get("dealer_name") || null,
-        representative: formData.get("representative") || null,
-        installer: formData.get("installer") || null,
-        install_subject: formData.get("install_subject") || null,
-        product_name: formData.get("product_name") || null,
-        box_sn: formData.get("box_sn") || null,
-        keypad_sn: formData.get("keypad_sn") || null,
-        spline: formData.get("spline") || null,
-        bracket: formData.get("bracket") || null,
-        machine_type: formData.get("machine_type") || null,
-        manufacturer: formData.get("manufacturer") || null,
-        model_sn: formData.get("model_sn") || null,
-        customer_name: formData.get("customer_name") || null,
-        customer_phone: formData.get("customer_phone") || null,
-        customer_address: formData.get("customer_address") || null,
-        education_date: formData.get("education_date") || null,
-        education_staff: formData.get("education_staff") || null,
-        farm_scale: formData.get("farm_scale") || null,
-        main_crop: formData.get("main_crop") || null,
-        memo: formData.get("memo") || null,
-        major_issue: formData.get("major_issue") || null,
-        ad_a1_software: formData.get("ad_a1_software") || null,
-        coa_fw: formData.get("coa_fw") || null,
-        ins_ver: formData.get("ins_ver") || null,
-        moa_fw: formData.get("moa_fw") || null,
-        cpg_fw: formData.get("cpg_fw") || null,
-        adc2: formData.get("adc2") || null,
-        cpad_sw: formData.get("cpad_sw") || null
+
+        // 1. 기본정보
+        order_date:
+            formData.get("order_date") || null,
+
+        install_date:
+            formData.get("install_date") || null,
+
+        install_start_time:
+            formData.get("install_start_time") || null,
+
+        install_end_time:
+            formData.get("install_end_time") || null,
+
+        // 2. 거래처 정보
+        sales_type:
+            formData.get("sales_type") || null,
+
+        dealer_name:
+            formData.get("dealer_name") || null,
+
+        representative:
+            formData.get("representative") || null,
+
+        // 3. 제품 정보
+        product_name:
+            productName || null,
+
+        box_sn:
+            formData.get("box_sn") || null,
+
+        keypad_sn:
+            formData.get("keypad_sn") || null,
+
+        spline:
+            formData.get("spline") || null,
+
+        bracket:
+            formData.get("bracket") || null,
+
+        rear_camera:
+            formData.get("rear_camera") || null,
+
+        // 4. 농기계 1
+        machine_type:
+            formData.get("machine_type") || null,
+
+        manufacturer:
+            formData.get("manufacturer") || null,
+
+        model_sn:
+            formData.get("model_sn") || null,
+
+        horsepower:
+            toNullableInteger(formData.get("horsepower")),
+
+        machine_number:
+            formData.get("machineNumber") || null,
+
+        // 4-2. 농기계 2
+        machine_type_2:
+            isPlusModel
+                ? formData.get("machine_type_2") || null
+                : null,
+
+        manufacturer_2:
+            isPlusModel
+                ? formData.get("manufacturer_2") || null
+                : null,
+
+        model_sn_2:
+            isPlusModel
+                ? formData.get("model_sn_2") || null
+                : null,
+
+        horsepower_2:
+            isPlusModel
+                ? toNullableInteger(formData.get("horsepower_2"))
+                : null,
+
+        machine_number_2:
+            isPlusModel
+                ? formData.get("machineNumber_2") || null
+                : null,
+
+        // 5. 고객 및 교육정보
+        customer_name:
+            formData.get("customer_name") || null,
+
+        customer_phone:
+            formData.get("customer_phone") || null,
+
+        customer_address:
+            formData.get("customer_address") || null,
+
+        crop_and_scale:
+            formData.get("crop_and_scale") || null,
+
+        education_date:
+            formData.get("education_date") || null,
+
+        education_staff:
+            formData.get("education_staff") || null,
+
+        // 6. 소프트웨어 버전
+        ad_a1_software:
+            formData.get("ad_a1_software") || null,
+
+        coa_fw:
+            formData.get("coa_fw") || null,
+
+        ins_ver:
+            formData.get("ins_ver") || null,
+
+        moa_fw:
+            formData.get("moa_fw") || null,
+
+        cpg_fw:
+            formData.get("cpg_fw") || null,
+
+        adc2:
+            formData.get("adc2") || null,
+
+        cpad_sw:
+            formData.get("cpad_sw") || null,
+
+        // 7. 작업자 및 이슈
+        install_subject:
+            formData.get("install_subject") || null,
+
+        installer:
+            formData.get("installer") || null,
+
+        major_issue:
+            formData.get("major_issue") || null,
+
+        customer_request:
+            formData.get("customer_request") || null
     };
 }
 
@@ -184,26 +316,30 @@ async function uploadTempPhotos(recordId) {
     }
 
     tempPhotos = {
-        install: [],
-        vehicle: [],
-        version: [],
-        eps: [],
-        cpg: [],
-        acu: []
-    };
+    install: [],
+    vehicle: [],
+    machineNumber: [],
+    rearCamera: [],
+    eps: [],
+    cpg: [],
+    acu: [],
+    version: []
+};
 
     await loadPhotos();
 }
 
 function renderTempPhotos(photoType) {
     const photoAreaMap = {
-        install: "installPhotos",
-        vehicle: "vehiclePhotos",
-        version: "versionPhotos",
-        eps: "epsPhotos",
-        cpg: "cpgPhotos",
-        acu: "acuPhotos"
-    };
+      install: "installPhotos",
+      vehicle: "vehiclePhotos",
+      machineNumber: "machineNumberPhotos",
+      rearCamera: "rearCameraPhotos",
+      eps: "epsPhotos",
+      cpg: "cpgPhotos",
+      acu: "acuPhotos",
+      version: "versionPhotos"
+};
 
     const target = document.getElementById(photoAreaMap[photoType]);
     if (!target) return;
@@ -492,19 +628,49 @@ async function viewRecord(id) {
 function fillForm(record) {
     const form = document.getElementById("installForm");
 
-    Object.keys(record).forEach((key) => {
+    if (!form) return;
+
+    Object.entries(record).forEach(([key, value]) => {
         const input = form.elements[key];
 
         if (input) {
-            input.value = record[key] || "";
+            input.value = value ?? "";
         }
     });
 
-    const recordIdInput = document.getElementById("recordId");
-
-    if (recordIdInput) {
-        recordIdInput.value = record.id;
+    // DB 컬럼명과 HTML name이 다른 항목
+    const machineNumber1 = form.elements["machineNumber"];
+    if (machineNumber1) {
+        machineNumber1.value = record.machine_number ?? "";
     }
+
+    const machineNumber2 = form.elements["machineNumber_2"];
+    if (machineNumber2) {
+        machineNumber2.value = record.machine_number_2 ?? "";
+    }
+
+    const recordIdInput = document.getElementById("recordId");
+    if (recordIdInput) {
+        recordIdInput.value = record.id ?? "";
+    }
+
+    // PLUS 모델 여부에 따라 농기계 2 표시
+    toggleMachineSection();
+
+    // 장착직원 버튼 상태 복원
+    const selectedInstallers = String(record.installer || "")
+        .split(",")
+        .map(name => name.trim())
+        .filter(Boolean);
+
+    document
+        .querySelectorAll("#installerButtons button")
+        .forEach(button => {
+            button.classList.toggle(
+                "active",
+                selectedInstallers.includes(button.dataset.name)
+            );
+        });
 }
 async function deleteRecord(id) {
     console.log("삭제 시도 id:", id);
@@ -532,10 +698,12 @@ async function deleteRecord(id) {
 let tempPhotos = {
     install: [],
     vehicle: [],
-    version: [],
+    machineNumber: [],
+    rearCamera: [],
     eps: [],
     cpg: [],
-    acu: []
+    acu: [],
+    version: []
 };
 
 async function uploadPhotoByType(photoType, inputId) {
@@ -582,13 +750,15 @@ async function loadPhotos() {
 function renderPhotos(photos) {
 
     const photoAreaMap = {
-        install: "installPhotos",
-        vehicle: "vehiclePhotos",
-        version: "versionPhotos",
-        eps: "epsPhotos",
-        cpg: "cpgPhotos",
-        acu: "acuPhotos"
-    };
+     install: "installPhotos",
+     vehicle: "vehiclePhotos",
+     machineNumber: "machineNumberPhotos",
+     rearCamera: "rearCameraPhotos",
+     eps: "epsPhotos",
+     cpg: "cpgPhotos",
+     acu: "acuPhotos",
+     version: "versionPhotos"
+};
 
     // 기존 사진 비우기
     Object.values(photoAreaMap).forEach(id => {
@@ -631,14 +801,9 @@ function newForm() {
     const recordId = document.getElementById("recordId");
     if (recordId) recordId.value = "";
 
-    ["installPhotos", "vehiclePhotos", "versionPhotos", "epsPhotos", "cpgPhotos", "acuPhotos"].forEach(id => {
+    ["installPhotos", "vehiclePhotos", "machineNumberPhotos", "rearCameraPhotos", "epsPhotos", "cpgPhotos", "acuPhotos", "versionPhotos"].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = "";
-    });
-
-    ["installIssue", "vehicleIssue", "versionIssue", "epsIssue", "cpgIssue", "acuIssue"].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = "";
     });
 
      // 맨 위로 이동
