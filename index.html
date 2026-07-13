@@ -66,40 +66,79 @@
         </div>
 
         <h3>1. 기본 정보</h3>
-        <div class="grid three">
-          <label>장착일자
-            <input type="date" name="install_date" required />
-          </label>
-          <label>주문접수일
-            <input type="date" name="order_date" />
-          </label>
-        </div>
+<div class="grid three">
+  <label>주문접수일
+    <input type="date" name="order_date" />
+  </label>
 
-        <h3>2. 거래처 정보</h3>
-        <div class="grid three">
-          <label>판매처
-            <select name="sales_channel">
-              <option></option>
-              <option>대리점</option>
-              <option>B2B</option>
-              <option>정부기관</option>
-              <option>농협</option>
-              <option>기타</option>
-            </select>
-          </label>
-          <label>딜러점/거래처명
-            <input name="dealer_name" />
-          </label>
-          <label>대표자
-            <input name="representative" />
-          </label>
-        </div>
+  <label>장착일자
+    <input type="date" name="install_date" required />
+  </label>
+
+  <label>장착시간
+    <div class="time-range">
+      <input
+        type="time"
+        name="install_start_time"
+        aria-label="장착 시작시간"
+      />
+
+      <span>~</span>
+
+      <input
+        type="time"
+        name="install_end_time"
+        aria-label="장착 종료시간"
+      />
+    </div>
+  </label>
+</div>
+
+       <h3>2. 거래처 정보</h3>
+
+<div class="grid three">
+
+  <label>판매구분
+    <select name="sales_type">
+      <option value="">선택</option>
+      <option value="일반">일반</option>
+      <option value="보조">보조</option>
+      <option value="B2B">B2B</option>
+      <option value="기타">기타</option>
+    </select>
+  </label>
+
+  <label>거래처
+    <select name="dealer_name">
+      <option value="">선택</option>
+      <option>TYM</option>
+      <option>대동</option>
+      <option>LS</option>
+      <option>국제</option>
+      <option>아세아</option>
+      <option>구보다</option>
+      <option>얀마</option>
+      <option>기타</option>
+    </select>
+  </label>
+
+  <label>대표자
+    <input name="representative" />
+  </label>
+
+</div>
 
         <h3>3. 제품 정보</h3>
         <div class="grid three">
           <label>제품명
-            <input name="product_name" value="AGDICT 자율주행키트" required />
-          </label>
+    <select id="product_name" name="product_name" required>
+        <option value="">선택</option>
+        <option value="AD100">AD100</option>
+        <option value="AD100 PLUS">AD100 PLUS</option>
+        <option value="AD100W">AD100W</option>
+        <option value="AD100W PLUS">AD100W PLUS</option>
+    </select>
+</label>
           <label>BOX S/N
             <input name="box_sn" required />
           </label>
@@ -134,28 +173,113 @@
         </div>
 
         <h3>4. 농기계 정보</h3>
-        <div class="grid three">
-          <label>기종
-            <select name="machine_type">
-            <option></option>
-            <option>트랙터</option>
-            <option>이앙기</option>
-            <option>승용관리기</option>
-            <option>기타</option>
-        </select>
+
+<div id="machine1Section" class="machine-section">
+  <h4>농기계 1</h4>
+
+  <div class="grid three">
+
+    <label>기종
+      <select name="machine_type">
+        <option value="">선택</option>
+        <option value="트랙터">트랙터</option>
+        <option value="이앙기">이앙기</option>
+        <option value="승용관리기">승용관리기</option>
+        <option value="기타">기타</option>
+      </select>
     </label>
 
     <label>제조사
-        <input name="manufacturer" />
+      <select name="manufacturer">
+        <option value="">선택</option>
+        <option value="TYM">TYM</option>
+        <option value="대동">대동</option>
+        <option value="LS">LS</option>
+        <option value="국제">국제</option>
+        <option value="아세아">아세아</option>
+        <option value="구보다">구보다</option>
+        <option value="얀마">얀마</option>
+        <option value="펜트">펜트</option>
+        <option value="기타">기타</option>
+      </select>
     </label>
 
     <label>모델명
-        <input name="model_sn" />
+      <input name="model_sn" />
+    </label>
+
+    <label>마력(HP)
+      <input
+        type="number"
+        name="horsepower"
+        min="0"
+        step="1"
+        placeholder="예) 110"
+      />
     </label>
 
     <label>기대번호
-        <input name="machineNumber" placeholder="예) 12345678" />
+      <input
+        name="machineNumber"
+        placeholder="예) 12345678"
+      />
     </label>
+
+  </div>
+</div>
+
+<div id="machine2Section" class="machine-section hidden">
+  <h4>농기계 2</h4>
+
+  <div class="grid three">
+
+    <label>기종
+      <select name="machine_type_2">
+        <option value="">선택</option>
+        <option value="트랙터">트랙터</option>
+        <option value="이앙기">이앙기</option>
+        <option value="승용관리기">승용관리기</option>
+        <option value="기타">기타</option>
+      </select>
+    </label>
+
+    <label>제조사
+      <select name="manufacturer_2">
+        <option value="">선택</option>
+        <option value="TYM">TYM</option>
+        <option value="대동">대동</option>
+        <option value="LS">LS</option>
+        <option value="국제">국제</option>
+        <option value="아세아">아세아</option>
+        <option value="구보다">구보다</option>
+        <option value="얀마">얀마</option>
+        <option value="펜트">펜트</option>
+        <option value="기타">기타</option>
+      </select>
+    </label>
+
+    <label>모델명
+      <input name="model_sn_2" />
+    </label>
+
+    <label>마력(HP)
+      <input
+        type="number"
+        name="horsepower_2"
+        min="0"
+        step="1"
+        placeholder="예) 110"
+      />
+    </label>
+
+    <label>기대번호
+      <input
+        name="machineNumber_2"
+        placeholder="예) 12345678"
+      />
+    </label>
+
+  </div>
 </div>
 
         <h3>5. 고객 정보</h3>
@@ -176,26 +300,34 @@
     </label>
 
     <label>
-        교육일자
-        <input name="education_date" type="date" />
-    </label>
-
-    <label>
-        교육직원
-        <input name="education_staff" />
-    </label>
-
-    <label>
-        농사규모
-        <input name="farm_scale" />
-    </label>
-
-    <label>
-        주요작물
-        <input name="main_crop" />
-    </label>
+    주요작물 및 농사규모
+    <input
+        name="crop_and_scale"
+        placeholder="예) 벼 1만평, 콩 5천평"
+    />
+</label>
 </div>
 
+<h4>교육정보 (선택)</h4>
+
+<div class="grid two">
+
+<label>
+    교육일자
+    <input
+        name="education_date"
+        type="date"
+    />
+</label>
+
+<label>
+    교육직원
+    <input
+        name="education_staff"
+    />
+</label>
+
+</div>
         <h3>6. 소프트웨어 버전</h3>
         <div class="grid three">
           <label>
@@ -261,119 +393,255 @@
         </div>
         <input type="hidden" id="installer" name="installer">
 </div>
-        <label>주요 이슈
-          <textarea name="major_issue"></textarea>
-        </label>
+        <div class="grid two">
 
-        <label>비고
-          <textarea name="memo"></textarea>
-        </label>
+    <label>
+        주요 이슈
+        <textarea
+            name="major_issue"
+            rows="4"
+            placeholder="장착 중 발생한 주요 이슈를 입력하세요."
+        ></textarea>
+    </label>
+
+    <label>
+        고객 의견 / 요청사항
+        <textarea
+            name="customer_request"
+            rows="4"
+            placeholder="고객 의견 또는 요청사항을 입력하세요."
+        ></textarea>
+    </label>
+
+</div>
 
       
-      <h3>8. 사진 등록</h3>
+<h3>8. 사진 등록</h3>
 
-<div class="photo-report-section">
+<div class="photo-upload-section">
 
-    <!-- 장착사진 -->
-<div class="photo-report-row">
-  <div class="photo-report-cell">
-    <h4>장착사진</h4>
+  <!-- 1. 전체사진 -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">01</span>
+        <h4>전체사진</h4>
+        <p>농기계 전체와 장착 상태가 보이도록 촬영</p>
+      </div>
 
-    <input type="file" id="installPhotoInput" multiple accept="image/*"
-      onchange="uploadPhotoByType('install','installPhotoInput')">
+      <label class="photo-add-button" for="installPhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
+
+    <input
+      type="file"
+      id="installPhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('install', 'installPhotoInput')"
+    />
 
     <div id="installPhotos" class="photo-grid"></div>
-  </div>
+  </section>
 
-  <div class="photo-report-cell issue-cell">
-    <h4>주요 이슈</h4>
-    <textarea id="installIssue" placeholder="주요 이슈를 입력하세요"></textarea>
-  </div>
-</div>
+  <!-- 2. 차량제원 -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">02</span>
+        <h4>차량제원</h4>
+        <p>차량 또는 농기계 제원 명판 촬영</p>
+      </div>
 
-<!-- 차량제원 -->
-<div class="photo-report-row">
-  <div class="photo-report-cell">
-    <h4>차량제원</h4>
+      <label class="photo-add-button" for="vehiclePhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
 
-    <input type="file" id="vehiclePhotoInput" multiple accept="image/*"
-      onchange="uploadPhotoByType('vehicle','vehiclePhotoInput')">
+    <input
+      type="file"
+      id="vehiclePhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('vehicle', 'vehiclePhotoInput')"
+    />
 
     <div id="vehiclePhotos" class="photo-grid"></div>
-  </div>
+  </section>
 
-  <div class="photo-report-cell issue-cell">
-    <h4>주요 이슈</h4>
-    <textarea id="vehicleIssue" placeholder="주요 이슈를 입력하세요"></textarea>
-  </div>
-</div>
+  <!-- 3. 농기계 기대번호 -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">03</span>
+        <h4>농기계 기대번호</h4>
+        <p>농기계 자체 S/N 또는 형식명판이 식별되도록 촬영</p>
+      </div>
 
-<!-- F/W, S/W 버전 -->
-<div class="photo-report-row">
-  <div class="photo-report-cell">
-    <h4>F/W, S/W 버전</h4>
+      <label class="photo-add-button" for="machineNumberPhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
 
-    <input type="file" id="versionPhotoInput" multiple accept="image/*"
-      onchange="uploadPhotoByType('version','versionPhotoInput')">
+    <input
+      type="file"
+      id="machineNumberPhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('machineNumber', 'machineNumberPhotoInput')"
+    />
 
-    <div id="versionPhotos" class="photo-grid"></div>
-  </div>
+    <div id="machineNumberPhotos" class="photo-grid"></div>
+  </section>
 
-  <div class="photo-report-cell issue-cell">
-    <h4>주요 이슈</h4>
-    <textarea id="versionIssue" placeholder="주요 이슈를 입력하세요"></textarea>
-  </div>
-</div>
+  <!-- 4. 후방카메라 -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">04</span>
+        <h4>후방카메라</h4>
+        <p>카메라 장착 위치와 배선 상태가 보이도록 촬영</p>
+      </div>
 
-<!-- EPS부 장착 사진 -->
-<div class="photo-report-row">
-  <div class="photo-report-cell">
-    <h4>EPS부 장착 사진</h4>
+      <label class="photo-add-button" for="rearCameraPhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
 
-    <input type="file" id="epsPhotoInput" multiple accept="image/*"
-      onchange="uploadPhotoByType('eps','epsPhotoInput')">
+    <input
+      type="file"
+      id="rearCameraPhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('rearCamera', 'rearCameraPhotoInput')"
+    />
+
+    <div id="rearCameraPhotos" class="photo-grid"></div>
+  </section>
+
+  <!-- 5. EPS -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">05</span>
+        <h4>EPS 장착사진</h4>
+        <p>핸들모터, 브라켓 및 체결 상태 촬영</p>
+      </div>
+
+      <label class="photo-add-button" for="epsPhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
+
+    <input
+      type="file"
+      id="epsPhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('eps', 'epsPhotoInput')"
+    />
 
     <div id="epsPhotos" class="photo-grid"></div>
-  </div>
+  </section>
 
-  <div class="photo-report-cell issue-cell">
-    <h4>주요 이슈</h4>
-    <textarea id="epsIssue" placeholder="주요 이슈를 입력하세요"></textarea>
-  </div>
-</div>
+  <!-- 6. CPG / KEYPAD -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">06</span>
+        <h4>CPG / KEYPAD 장착사진</h4>
+        <p>CPG와 KEYPAD의 위치 및 배선 상태 촬영</p>
+      </div>
 
-<!-- CPG/KEYPAD 장착사진 -->
-<div class="photo-report-row">
-  <div class="photo-report-cell">
-    <h4>CPG/KEYPAD 장착사진</h4>
+      <label class="photo-add-button" for="cpgPhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
 
-    <input type="file" id="cpgPhotoInput" multiple accept="image/*"
-      onchange="uploadPhotoByType('cpg','cpgPhotoInput')">
+    <input
+      type="file"
+      id="cpgPhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('cpg', 'cpgPhotoInput')"
+    />
 
     <div id="cpgPhotos" class="photo-grid"></div>
-  </div>
+  </section>
 
-  <div class="photo-report-cell issue-cell">
-    <h4>주요 이슈</h4>
-    <textarea id="cpgIssue" placeholder="주요 이슈를 입력하세요"></textarea>
-  </div>
-</div>
+  <!-- 7. ACU -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">07</span>
+        <h4>ACU 장착사진</h4>
+        <p>안테나 위치와 부착 상태가 보이도록 촬영</p>
+      </div>
 
-<!-- ACU부 부착 사진 -->
-<div class="photo-report-row">
-  <div class="photo-report-cell">
-    <h4>ACU부 부착 사진</h4>
+      <label class="photo-add-button" for="acuPhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
 
-    <input type="file" id="acuPhotoInput" multiple accept="image/*"
-      onchange="uploadPhotoByType('acu','acuPhotoInput')">
+    <input
+      type="file"
+      id="acuPhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('acu', 'acuPhotoInput')"
+    />
 
     <div id="acuPhotos" class="photo-grid"></div>
-  </div>
+  </section>
 
-  <div class="photo-report-cell issue-cell">
-    <h4>주요 이슈</h4>
-    <textarea id="acuIssue" name="acu_issue" placeholder="주요 이슈를 입력하세요"></textarea>
-  </div>
+  <!-- 8. F/W · S/W -->
+  <section class="photo-upload-card">
+    <div class="photo-upload-header">
+      <div>
+        <span class="photo-step">08</span>
+        <h4>F/W · S/W 버전</h4>
+        <p>각 장치의 버전 정보를 확인할 수 있도록 촬영</p>
+      </div>
+
+      <label class="photo-add-button" for="versionPhotoInput">
+        📷 사진 추가
+      </label>
+    </div>
+
+    <input
+      type="file"
+      id="versionPhotoInput"
+      class="photo-file-input"
+      multiple
+      accept="image/*"
+      onchange="uploadPhotoByType('version', 'versionPhotoInput')"
+    />
+
+    <div id="versionPhotos" class="photo-grid"></div>
+  </section>
+
+</div>
+
+<!-- ===========================
+     v2 하단 저장 버튼
+=========================== -->
+<div class="form-bottom-actions">
+
+  <button
+    type="submit"
+    class="primary"
+  >
+    저장
+  </button>
+
 </div>
 
       </form>

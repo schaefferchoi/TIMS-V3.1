@@ -50,6 +50,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showTab("dashboard");
 
+// 초기 상태 설정
+toggleMachineSection();
+
+document
+    .getElementById("product_name")
+    ?.addEventListener("change", toggleMachineSection);
+
 });
 function collectFormData() {
     const form = document.getElementById("installForm");
@@ -732,7 +739,7 @@ async function generateConfluence() {
         : Date.now();
 
    const pageTitle =
-    `[${dateCode}] ${record.dealer_region || record.dealer_name || ""} ${record.manufacturer || ""}${record.model_sn || ""}_${record.box_sn || ""}_${uniqueCode}`;
+    `[${dateCode}] ${record.dealer_region || record.dealer_name || ""} ${record.manufacturer || ""}${record.model_sn || ""}_${record.box_sn || ""}`;
 
     const response = await fetch(
         "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
@@ -933,9 +940,28 @@ async function importConfluence() {
         return;
     }
 
+console.log("IMPORT RESULT:", result);
+console.log("ATTACHMENTS:", result.attachments);
+
+const usedAttachmentNames = [
+    ...result.html.matchAll(/ri:filename="([^"]+)"/g)
+].map(match => match[1]);
+
+const usedAttachments = (result.attachments || []).filter(attachment =>
+    usedAttachmentNames.includes(attachment.filename)
+);
+
+console.log("USED ATTACHMENTS:", usedAttachments);
+
 const data = parseConfluenceTable(result.html);
 
 console.log(data);
+
+const photoMap = parseConfluencePhotos(result.html);
+
+console.log(photoMap);
+
+console.log(result.html.match(/ri:attachment[\s\S]{0,300}/g));
 
 const form = document.getElementById("installForm");
 
@@ -1204,6 +1230,85 @@ function parseConfluenceTable(html) {
 
     return result;
 }
+function parseConfluencePhotos(html) {
+    const normalizedHtml = String(html || "");
+
+    const sectionDefinitions = [
+        {
+            type: "install",
+            labels: ["장착사진", "장착 사진"]
+        },
+        {
+            type: "vehicle",
+            labels: ["차량사진", "차량 사진", "농기계사진", "농기계 사진"]
+        },
+        {
+            type: "version",
+            labels: ["버전사진", "버전 사진", "버전정보사진", "버전 정보 사진"]
+        },
+        {
+            type: "eps",
+            labels: ["EPS사진", "EPS 사진"]
+        },
+        {
+            type: "cpg",
+            labels: ["CPG사진", "CPG 사진"]
+        },
+        {
+            type: "acu",
+            labels: ["ACU사진", "ACU 사진"]
+        }
+    ];
+
+    const result = {
+        install: [],
+        vehicle: [],
+        version: [],
+        eps: [],
+        cpg: [],
+        acu: []
+    };
+
+    const sectionPositions = [];
+
+    sectionDefinitions.forEach(section => {
+        section.labels.forEach(label => {
+            const index = normalizedHtml.indexOf(label);
+
+            if (index !== -1) {
+                sectionPositions.push({
+                    type: section.type,
+                    index
+                });
+            }
+        });
+    });
+
+    sectionPositions.sort((a, b) => a.index - b.index);
+
+    for (let i = 0; i < sectionPositions.length; i++) {
+        const current = sectionPositions[i];
+        const next = sectionPositions[i + 1];
+
+        const sectionHtml = normalizedHtml.slice(
+            current.index,
+            next ? next.index : normalizedHtml.length
+        );
+
+        const filenames = [
+            ...sectionHtml.matchAll(/ri:filename="([^"]+)"/g)
+        ].map(match => match[1]);
+
+        result[current.type] = [
+            ...new Set([
+                ...result[current.type],
+                ...filenames
+            ])
+        ];
+    }
+
+    return result;
+}
 const installerButtons =
     document.querySelectorAll("#installerButtons button");
 
@@ -1224,3 +1329,99 @@ installerButtons.forEach(button=>{
     });
 
 });
+async function importConfluencePhotos({
+    attachments,
+    photoMap,
+    url,
+    email,
+    token
+}) {
+    const attachmentMap = new Map(
+        attachments.map(item => [item.filename, item])
+    );
+
+    const photoTypes = [
+        "install",
+        "vehicle",
+        "version",
+        "eps",
+        "cpg",
+        "acu"
+    ];
+
+    for (const photoType of photoTypes) {
+        const filenames = photoMap[photoType] || [];
+
+        for (const filename of filenames) {
+            const attachment = attachmentMap.get(filename);
+
+            if (!attachment?.downloadPath) {
+                console.warn("첨부파일 정보를 찾을 수 없음:", filename);
+                continue;
+            }
+
+            const response = await fetch(
+                "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/import-confluence",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        action: "download",
+                        url,
+                        email,
+                        token,
+                        downloadPath: attachment.downloadPath
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                console.error("사진 다운로드 실패:", filename);
+                continue;
+            }
+
+            const blob = await response.blob();
+
+            const file = new File(
+                [blob],
+                filename,
+                {
+                    type:
+                        attachment.mediaType ||
+                        blob.type ||
+                        "image/jpeg"
+                }
+            );
+
+            tempPhotos[photoType].push(file);
+        }
+
+        renderTempPhotos(photoType);
+    }
+
+    console.log("Confluence 사진 가져오기 완료:", tempPhotos);
+}
+// =============================
+// 제품명에 따라 농기계2 표시
+// =============================
+function toggleMachineSection() {
+
+    const product = document.getElementById("product_name");
+    const machine2 = document.getElementById("machine2Section");
+
+    if (!product || !machine2) return;
+
+    const value = product.value;
+
+    if (
+        value === "AD100 PLUS" ||
+        value === "AD100W PLUS"
+    ) {
+        machine2.classList.remove("hidden");
+    } else {
+        machine2.classList.add("hidden");
+    }
+
+}
