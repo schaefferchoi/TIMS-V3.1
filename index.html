@@ -27,28 +27,108 @@
 
   <main class="container">
     <section id="dashboardTab" class="page">
-      <div class="card">
+
+  <div class="card dashboard-card">
+
+    <div class="dashboard-header">
+      <div>
         <h2>대시보드</h2>
-        <div class="summary-grid">
-          <div class="summary-card">
-            <strong id="totalCount">0</strong>
-            <span>전체 장착</span>
-          </div>
-          <div class="summary-card">
-            <strong id="monthCount">0</strong>
-            <span>이번 달</span>
-          </div>
-          <div class="summary-card">
-            <strong id="photoCount">0</strong>
-            <span>사진</span>
-          </div>
-          <div class="summary-card">
-            <strong id="confluenceCount">0</strong>
-            <span>Confluence 생성</span>
-          </div>
+        <p id="dashboardYear">2026년</p>
+      </div>
+    </div>
+
+    <div class="dashboard-summary-grid dashboard-summary-grid-four">
+
+      <div class="dashboard-summary-card">
+        <span>올해 장착</span>
+        <div>
+          <strong id="totalInstallCount">0</strong>
+          <small>대</small>
         </div>
       </div>
-    </section>
+
+      <div class="dashboard-summary-card">
+        <span>이번 달 장착</span>
+        <div>
+          <strong id="monthInstallCount">0</strong>
+          <small>대</small>
+        </div>
+      </div>
+
+      <div class="dashboard-summary-card">
+        <span>오늘 장착</span>
+        <div>
+          <strong id="todayInstallCount">0</strong>
+          <small>대</small>
+        </div>
+      </div>
+
+      <div class="dashboard-summary-card">
+        <span>총 교육횟수</span>
+        <div>
+          <strong id="totalEducationCount">0</strong>
+          <small>회</small>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="dashboard-detail-grid">
+
+      <section class="dashboard-panel">
+        <h3>판매구분</h3>
+
+        <div
+          id="salesTypeSummary"
+          class="dashboard-stat-list"
+        ></div>
+      </section>
+
+      <section class="dashboard-panel">
+        <h3>장착지역</h3>
+
+        <div
+          id="regionSummary"
+          class="dashboard-stat-list"
+        >
+          <p class="empty">지역 데이터를 불러오는 중입니다.</p>
+        </div>
+      </section>
+
+      <section class="dashboard-panel">
+        <h3>제품별 장착</h3>
+
+        <div
+          id="productSummary"
+          class="dashboard-stat-list"
+        >
+          <p class="empty">제품 데이터를 불러오는 중입니다.</p>
+        </div>
+      </section>
+
+      <section class="dashboard-panel">
+       
+        <h3>제조사별 장착</h3>
+
+        <div
+          id="manufacturerSummary"
+          class="dashboard-stat-list"
+        >
+          <p class="empty">제조사 데이터를 불러오는 중입니다.</p>
+        </div>
+      </section>
+      <section class="dashboard-panel dashboard-chart-panel">
+
+        <h3>월별 장착 추이</h3>
+          <div class="dashboard-chart-wrap">
+            <canvas id="monthlyInstallChart"></canvas>
+         </div>
+      </section>
+    </div>
+
+  </div>
+
+</section>
 
     <section id="formTab" class="page hidden">
       <form id="installForm" class="card">
@@ -816,8 +896,8 @@ class="primary">
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
-  <script src="script.js"></script>  
-
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="./script.js"></script>
 </body>
 
 </html>

@@ -3,6 +3,7 @@
 
 let formChanged = false;
 let pendingTabName = null;
+let monthlyInstallChartInstance = null;
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -35,7 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tabName === "list") {
     loadRecords();
 }
-
+        if (tabName === "dashboard") {
+    loadDashboard();
+}
     }
 
    tabs.forEach(tab => {
@@ -1686,4 +1689,434 @@ function toggleMachineSection() {
         machine2.classList.add("hidden");
     }
 
+}
+// =========================================
+// Dashboard 2.0
+// =========================================
+
+async function loadDashboard() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
+    const currentDay = String(now.getDate()).padStart(2, "0");
+
+    const today = `${currentYear}-${currentMonth}-${currentDay}`;
+    const monthPrefix = `${currentYear}-${currentMonth}`;
+    const startDate = `${currentYear}-01-01`;
+    const endDate = `${currentYear}-12-31`;
+
+    const { data, error } = await supabaseClient
+        .from("install_records")
+        .select(`
+            install_date,
+            education_date,
+            sales_type,
+            customer_address,
+            product_name,
+            manufacturer
+        `)
+        .gte("install_date", startDate)
+        .lte("install_date", endDate);
+
+    if (error) {
+        console.error("대시보드 조회 실패:", error);
+        return;
+    }
+
+    const records = data || [];
+
+    const monthlyCount = new Array(12).fill(0);
+
+records.forEach(record => {
+    const installDate = String(record.install_date || "");
+
+    if (!installDate) return;
+
+    const month = Number(installDate.substring(5, 7));
+
+    if (month >= 1 && month <= 12) {
+        monthlyCount[month - 1] += 1;
+    }
+});
+
+    const totalInstallCount = records.length;
+
+    const monthInstallCount = records.filter(record =>
+        String(record.install_date || "").startsWith(monthPrefix)
+    ).length;
+
+    const todayInstallCount = records.filter(
+        record => record.install_date === today
+    ).length;
+
+    const totalEducationCount = records.filter(
+        record => Boolean(record.education_date)
+    ).length;
+
+    const salesTypeCount = {
+        일반: 0,
+        보조: 0,
+        B2B: 0,
+        기타: 0
+    };
+
+    const regionCount = {};
+    const productCount = {};
+    const manufacturerCount = {};
+
+    records.forEach(record => {
+        // 판매구분
+        const salesType = String(record.sales_type || "").trim();
+
+        if (
+            salesType &&
+            Object.prototype.hasOwnProperty.call(
+                salesTypeCount,
+                salesType
+            )
+        ) {
+            salesTypeCount[salesType] += 1;
+        } else {
+            salesTypeCount.기타 += 1;
+        }
+
+        // 지역
+        const region = extractRegion(record.customer_address);
+
+        if (region) {
+            regionCount[region] =
+                (regionCount[region] || 0) + 1;
+        }
+
+        // 제품
+        const productName =
+            String(record.product_name || "").trim();
+
+        if (productName) {
+            productCount[productName] =
+                (productCount[productName] || 0) + 1;
+        }
+
+        // 제조사
+        const manufacturer =
+            String(record.manufacturer || "").trim();
+
+        if (manufacturer) {
+            manufacturerCount[manufacturer] =
+                (manufacturerCount[manufacturer] || 0) + 1;
+        }
+    });
+
+    updateDashboardUI({
+        currentYear,
+        totalInstallCount,
+        monthInstallCount,
+        todayInstallCount,
+        totalEducationCount,
+        salesTypeCount,
+        regionCount,
+        productCount,
+        manufacturerCount,
+        monthlyCount
+    });
+}
+
+function extractRegion(address) {
+    const normalized = String(address || "")
+        .replace(/\s+/g, "")
+        .replace(/[()]/g, "")
+        .trim();
+
+    if (!normalized) return null;
+
+    const directRegionRules = [
+        ["서울특별시", "서울"],
+        ["부산광역시", "부산"],
+        ["대구광역시", "대구"],
+        ["인천광역시", "인천"],
+        ["광주광역시", "광주"],
+        ["대전광역시", "대전"],
+        ["울산광역시", "울산"],
+        ["세종특별자치시", "세종"],
+
+        ["경기도", "경기"],
+        ["강원특별자치도", "강원"],
+        ["강원도", "강원"],
+        ["충청북도", "충북"],
+        ["충청남도", "충남"],
+        ["전북특별자치도", "전북"],
+        ["전라북도", "전북"],
+        ["전라남도", "전남"],
+        ["경상북도", "경북"],
+        ["경상남도", "경남"],
+        ["제주특별자치도", "제주"],
+        ["제주도", "제주"],
+
+        ["서울", "서울"],
+        ["부산", "부산"],
+        ["대구", "대구"],
+        ["인천", "인천"],
+        ["대전", "대전"],
+        ["울산", "울산"],
+        ["세종", "세종"],
+        ["경기", "경기"],
+        ["강원", "강원"],
+        ["충북", "충북"],
+        ["충남", "충남"],
+        ["전북", "전북"],
+        ["전남", "전남"],
+        ["경북", "경북"],
+        ["경남", "경남"],
+        ["제주", "제주"]
+    ];
+
+    for (const [keyword, region] of directRegionRules) {
+        if (normalized.includes(keyword)) {
+            return region;
+        }
+    }
+
+    const cityRegionMap = {
+        경기: [
+            "수원", "고양", "용인", "성남", "화성", "부천",
+            "남양주", "안산", "평택", "안양", "시흥", "파주",
+            "김포", "의정부", "하남", "광명", "군포", "양주",
+            "오산", "이천", "안성", "구리", "포천", "의왕",
+            "여주", "동두천", "양평", "가평", "연천"
+        ],
+
+        강원: [
+            "춘천", "원주", "강릉", "동해", "태백", "속초",
+            "삼척", "홍천", "횡성", "영월", "평창", "정선",
+            "철원", "화천", "양구", "인제", "고성", "양양"
+        ],
+
+        충북: [
+            "청주", "충주", "제천", "보은", "옥천", "영동",
+            "증평", "진천", "괴산", "음성", "단양"
+        ],
+
+        충남: [
+            "천안", "공주", "보령", "아산", "서산", "논산",
+            "계룡", "당진", "금산", "부여", "서천", "청양",
+            "홍성", "예산", "태안"
+        ],
+
+        전북: [
+            "전주", "군산", "익산", "정읍", "남원", "김제",
+            "완주", "진안", "무주", "장수", "임실", "순창",
+            "고창", "부안"
+        ],
+
+        전남: [
+            "목포", "여수", "순천", "나주", "광양", "담양",
+            "곡성", "구례", "고흥", "보성", "화순", "장흥",
+            "강진", "해남", "영암", "무안", "함평", "영광",
+            "장성", "완도", "진도", "신안"
+        ],
+
+        경북: [
+            "포항", "경주", "김천", "안동", "구미", "영주",
+            "영천", "상주", "문경", "경산", "의성", "청송",
+            "영양", "영덕", "청도", "고령", "성주", "칠곡",
+            "예천", "봉화", "울진", "울릉"
+        ],
+
+        경남: [
+            "창원", "진주", "통영", "사천", "김해", "밀양",
+            "거제", "양산", "의령", "함안", "창녕", "고성",
+            "남해", "하동", "산청", "함양", "거창", "합천"
+        ],
+
+        제주: [
+            "제주시", "서귀포"
+        ]
+    };
+
+    for (const [region, cities] of Object.entries(cityRegionMap)) {
+        if (cities.some(city => normalized.includes(city))) {
+            return region;
+        }
+    }
+
+    return null;
+}
+
+function updateDashboardUI({
+    currentYear,
+    totalInstallCount,
+    monthInstallCount,
+    todayInstallCount,
+    totalEducationCount,
+    salesTypeCount,
+    regionCount,
+    productCount,
+    manufacturerCount,
+    monthlyCount
+}) {
+    const setText = (id, value) => {
+        const element = document.getElementById(id);
+
+        if (element) {
+            element.textContent = value;
+        }
+    };
+
+    setText("dashboardYear", `${currentYear}년`);
+    setText("totalInstallCount", totalInstallCount);
+    setText("monthInstallCount", monthInstallCount);
+    setText("todayInstallCount", todayInstallCount);
+    setText("totalEducationCount", totalEducationCount);
+
+    const salesSummary =
+        document.getElementById("salesTypeSummary");
+
+    if (salesSummary) {
+        salesSummary.innerHTML = `
+            <div>
+                <span>일반</span>
+                <strong>${salesTypeCount.일반}</strong>
+            </div>
+
+            <div>
+                <span>보조</span>
+                <strong>${salesTypeCount.보조}</strong>
+            </div>
+
+            <div>
+                <span>B2B</span>
+                <strong>${salesTypeCount.B2B}</strong>
+            </div>
+
+            <div>
+                <span>기타</span>
+                <strong>${salesTypeCount.기타}</strong>
+            </div>
+        `;
+    }
+
+    renderDashboardRanking(
+        "regionSummary",
+        regionCount,
+        "지역 데이터가 없습니다."
+    );
+
+    renderDashboardRanking(
+        "productSummary",
+        productCount,
+        "제품 데이터가 없습니다."
+    );
+
+    renderDashboardRanking(
+        "manufacturerSummary",
+        manufacturerCount,
+        "제조사 데이터가 없습니다."
+    );
+
+    drawMonthlyInstallChart(monthlyCount);
+}
+
+function drawMonthlyInstallChart(monthlyCount) {
+    const canvas = document.getElementById("monthlyInstallChart");
+
+    if (!canvas) return;
+
+    if (typeof Chart === "undefined") {
+        console.error("Chart.js가 로드되지 않았습니다.");
+        return;
+    }
+
+    if (monthlyInstallChartInstance) {
+        monthlyInstallChartInstance.destroy();
+    }
+
+    monthlyInstallChartInstance = new Chart(canvas, {
+        type: "line",
+
+        data: {
+            labels: [
+                "1월", "2월", "3월", "4월",
+                "5월", "6월", "7월", "8월",
+                "9월", "10월", "11월", "12월"
+            ],
+
+            datasets: [
+                {
+                    label: "장착대수",
+                    data: monthlyCount,
+                    borderWidth: 3,
+                    tension: 0.35,
+                    fill: false,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }
+            ]
+        },
+
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+
+            plugins: {
+                legend: {
+                    display: false
+                },
+
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            return `${context.raw}대`;
+                        }
+                    }
+                }
+            },
+
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0,
+                        stepSize: 1,
+                        callback(value) {
+                            return `${value}대`;
+                        }
+                    }
+                },
+
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderDashboardRanking(
+    targetId,
+    countMap,
+    emptyMessage
+) {
+    const target = document.getElementById(targetId);
+
+    if (!target) return;
+
+    const sortedItems = Object.entries(countMap)
+        .sort((a, b) => b[1] - a[1]);
+
+    target.innerHTML = sortedItems.length
+        ? sortedItems
+            .map(([label, count], index) => `
+                <div>
+                    <span>
+                        <small>${index + 1}</small>
+                        ${label}
+                    </span>
+
+                    <strong>${count}</strong>
+                </div>
+            `)
+            .join("")
+        : `<p class="empty">${emptyMessage}</p>`;
 }
