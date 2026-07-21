@@ -23,6 +23,7 @@
     <button class="tab" data-tab="form">장착등록</button>
     <button class="tab" data-tab="list">장착목록</button>
     <button class="tab" data-tab="setting">설정</button>
+    <button class="tab" data-tab="admin">관리자</button>
   </nav>
 
   <main class="container">
@@ -192,12 +193,14 @@
     <select name="dealer_name">
       <option value="">선택</option>
       <option>TYM</option>
+      <option>ISEKI</option>
       <option>대동</option>
       <option>LS</option>
       <option>국제</option>
       <option>아세아</option>
       <option>구보다</option>
       <option>얀마</option>
+      <option>존디어</option>
       <option>기타</option>
     </select>
   </label>
@@ -740,6 +743,14 @@
             <button type="button" class="filter-chip" data-filter="saved">저장완료</button>
             <button type="button" class="filter-chip" data-filter="photoMissing">사진 미등록</button>
           </div>
+          <button type="button" id="exportExcelBtn" class="secondary">
+            엑셀 내보내기
+          </button>
+
+          <button type="button" id="exportPdfBtn" class="secondary">
+            PDF 내보내기
+          </button>
+          
           <button type="button" id="listNewRecordBtn" class="primary">
              + 신규 등록
           </button>
@@ -898,6 +909,7 @@ class="primary">
   <script src="supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./script.js"></script>
+  <script src="./export.js"></script>
 </body>
 
 </html>

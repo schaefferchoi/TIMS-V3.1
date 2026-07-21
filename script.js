@@ -486,30 +486,45 @@ async function loadRecords() {
         .from("install_records")
         .select("*")
         .order("created_at", { ascending: false });
-    
-    const { data: photos, error: photoError } = await supabaseClient
-        .from("install_photos")
-        .select("record_id");
-    
+
     if (error) {
         console.error(error);
         alert("목록 조회 실패");
         return;
     }
 
-    const photoCountMap = {};
+    const { data: photos, error: photoError } = await supabaseClient
+        .from("install_photos")
+        .select("record_id, photo_type");
 
-(photos || []).forEach(photo => {
-    photoCountMap[photo.record_id] =
-        (photoCountMap[photo.record_id] || 0) + 1;
-});
+    if (photoError) {
+        console.error(photoError);
+    }
+
+    const photoTypeMap = {};
+    const photoSetMap = {};
+
+    (photos || []).forEach(photo => {
+        if (!photo.record_id || !photo.photo_type) return;
+
+        if (!photoTypeMap[photo.record_id]) {
+            photoTypeMap[photo.record_id] = new Set();
+        }
+
+        photoTypeMap[photo.record_id].add(photo.photo_type);
+
+        photoSetMap[photo.record_id] =
+            Array.from(photoTypeMap[photo.record_id]);
+    });
 
     console.log("현재 목록", data);
-    
+
     allRecords = (data || []).map(record => ({
-    ...record,
-    photoCount: photoCountMap[record.id] || 0
-}));
+        ...record,
+        photoCount: photoTypeMap[record.id]?.size || 0,
+        photoTypes: photoSetMap[record.id] || []
+    }));
+
     applyRecordFilters();
 }
 function renderRecords(records) {
@@ -535,6 +550,37 @@ function renderRecords(records) {
             ? "🟢 열기"
             : "🔴 연결";
 
+        const photoCount = Number(record.photoCount) || 0;
+
+        // 진행률은 최대 100%로 제한
+        const photoPercent = Math.min(
+            100,
+        Math.round((photoCount / 8) * 100)
+        );
+
+        const filledBars = Math.min(
+            10,
+            Math.max(0, Math.round(photoPercent / 10))
+        );
+
+const photoBar =
+    "█".repeat(filledBars) +
+    "░".repeat(10 - filledBars);
+     
+     const requiredPhotos = [
+    "install",
+    "vehicle",
+    "machineNumber",
+    "rearCamera",
+    "eps",
+    "cpg",
+    "acu",
+    "version"
+];
+
+const missingPhotos = requiredPhotos.filter(
+    type => !record.photoTypes.includes(type)
+);       
         return `
             <tr>
                 <td>${record.install_date || "-"}</td>
@@ -546,8 +592,21 @@ function renderRecords(records) {
                 <td>
                     ${record.manufacturer || ""} ${record.model_sn || ""}
                 </td>
-                <td>${record.photoCount || 0} / 8</td>
+                <td>
+                 <div class="photo-progress">
+                    <div>${photoBar}</div>
+                    <small>${photoCount}/8 (${photoPercent}%)</small>
 
+                    ${missingPhotos.length
+                       ? `<div class="photo-warning">
+                        ⚠ ${missingPhotos.length}개 누락
+                    </div>`
+                    : `<div class="photo-ok">
+                    ✓ 완료
+                    </div>`
+}
+                 </div>
+                </td>
                 <td>
                     <button
                         type="button"
@@ -575,7 +634,200 @@ function renderRecords(records) {
             </tr>
         `;
     }).join("");
+
 }
+
+function exportRecordsToExcel() {
+    if (!allRecords.length) {
+        alert("내보낼 장착 데이터가 없습니다.");
+        return;
+    }
+
+    const headers = [
+        "장착일",
+        "고객명",
+        "제품명",
+        "BOX S/N",
+        "제조사",
+        "모델명",
+        "사진",
+        "Confluence"
+    ];
+
+    const rows = allRecords.map(record => [
+        record.install_date || "",
+        record.customer_name || "",
+        record.product_name || "",
+        record.box_sn || "",
+        record.manufacturer || "",
+        record.model_sn || "",
+        `${record.photoCount || 0}/8`,
+        record.confluence_page_url
+            ? "동기화 완료"
+            : "미동기화"
+    ]);
+
+    const csvRows = [
+        headers,
+        ...rows
+    ].map(row =>
+        row.map(value => {
+            const text = String(value ?? "").replace(/"/g, '""');
+            return `"${text}"`;
+        }).join(",")
+    );
+
+    const csvContent = "\uFEFF" + csvRows.join("\n");
+
+    const blob = new Blob(
+        [csvContent],
+        { type: "text/csv;charset=utf-8;" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download =
+        `TYMICT_장착목록_${new Date()
+            .toISOString()
+            .slice(0, 10)}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+}
+
+function exportRecordsToPdf() {
+    if (!allRecords.length) {
+        alert("내보낼 장착 데이터가 없습니다.");
+        return;
+    }
+
+    const rows = allRecords.map(record => `
+        <tr>
+            <td>${escapeHtml(record.install_date || "-")}</td>
+            <td>${escapeHtml(record.customer_name || "-")}</td>
+            <td>${escapeHtml(record.product_name || "-")}</td>
+            <td>${escapeHtml(record.box_sn || "-")}</td>
+            <td>
+                ${escapeHtml(record.manufacturer || "")}
+                ${escapeHtml(record.model_sn || "")}
+            </td>
+            <td>${record.photoCount || 0}/8</td>
+            <td>
+                ${record.confluence_page_url
+                    ? "동기화 완료"
+                    : "미동기화"}
+            </td>
+        </tr>
+    `).join("");
+
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+        alert("팝업이 차단되었습니다. 팝업을 허용해 주세요.");
+        return;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ko">
+        <head>
+            <meta charset="UTF-8">
+            <title>TYMICT 장착목록</title>
+
+            <style>
+                body {
+                    font-family: Arial, "Noto Sans KR", sans-serif;
+                    padding: 24px;
+                    color: #222;
+                }
+
+                h1 {
+                    margin: 0 0 8px;
+                    font-size: 22px;
+                }
+
+                .print-date {
+                    margin-bottom: 20px;
+                    color: #666;
+                    font-size: 12px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 11px;
+                }
+
+                th,
+                td {
+                    border: 1px solid #aaa;
+                    padding: 7px;
+                    text-align: left;
+                    vertical-align: top;
+                }
+
+                th {
+                    background: #eef3f8;
+                }
+
+                @page {
+                    size: A4 landscape;
+                    margin: 12mm;
+                }
+            </style>
+        </head>
+
+        <body>
+            <h1>TYMICT 장착목록</h1>
+
+            <div class="print-date">
+                출력일: ${new Date().toLocaleDateString("ko-KR")}
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>장착일</th>
+                        <th>고객명</th>
+                        <th>제품명</th>
+                        <th>BOX S/N</th>
+                        <th>농기계</th>
+                        <th>사진</th>
+                        <th>Confluence</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+
+            <script>
+                window.onload = function () {
+                    window.print();
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 function applyRecordFilters() {
     const keyword =
         document.getElementById("searchInput")?.value.trim().toLowerCase() || "";
@@ -2120,3 +2372,10 @@ function renderDashboardRanking(
             .join("")
         : `<p class="empty">${emptyMessage}</p>`;
 }
+document
+    .getElementById("exportExcelBtn")
+    ?.addEventListener("click", exportRecordsToExcel);
+
+document
+    .getElementById("exportPdfBtn")
+    ?.addEventListener("click", exportRecordsToPdf);
