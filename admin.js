@@ -20,7 +20,7 @@ async function loadAdminInstallers() {
     if (!target) return;
 
     const { data, error } = await supabaseClient
-        .from("master_installers")
+        .from(MASTER_CONFIG.installers.table)
         .select("id, name, active, sort_order")
         .order("sort_order", { ascending: true });
 
@@ -295,6 +295,25 @@ window.moveInstaller = async function (
 
     if (typeof loadInstallers === "function") {
         await loadInstallers();
+    }
+
+};
+const MASTER_CONFIG = {
+
+    installers: {
+        table: "master_installers",
+        title: "장착직원",
+        listId: "adminInstallerList",
+        inputId: "newInstallerName",
+        loadFunction: "loadInstallers"
+    },
+
+    dealers: {
+        table: "master_dealers",
+        title: "거래처",
+        listId: "adminDealerList",
+        inputId: "newDealerName",
+        loadFunction: "loadDealers"
     }
 
 };
