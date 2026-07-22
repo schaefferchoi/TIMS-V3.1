@@ -1,26 +1,24 @@
 document.addEventListener("DOMContentLoaded", () => {
 
     loadAdminInstallers();
-    loadAdminDealers();
 
     document
         .getElementById("addInstallerBtn")
         ?.addEventListener("click", addInstaller);
 
-    document
-        .getElementById("addDealerBtn")
-        ?.addEventListener("click", addDealer);
-
 });
 
 async function loadAdminInstallers() {
+
+    const config = MASTER_CONFIG.installers;
+
     const target =
-        document.getElementById("adminInstallerList");
+        document.getElementById(config.listId);
 
     if (!target) return;
 
     const { data, error } = await supabaseClient
-        .from(MASTER_CONFIG.installers.table)
+        .from(config.table)
         .select("id, name, active, sort_order")
         .order("sort_order", { ascending: true });
 
@@ -137,8 +135,11 @@ async function loadAdminInstallers() {
 }
 
 async function addInstaller() {
+
+    const config = MASTER_CONFIG.installers;
+
     const input =
-        document.getElementById("newInstallerName");
+        document.getElementById(config.inputId);
 
     const name = input?.value.trim();
 
@@ -148,24 +149,18 @@ async function addInstaller() {
         return;
     }
 
-    const { data: currentData, error: countError } =
-        await supabaseClient
-            .from("master_installers")
-            .select("sort_order")
-            .order("sort_order", { ascending: false })
-            .limit(1);
+    let nextOrder;
 
-    if (countError) {
-        console.error("직원 순서 조회 실패:", countError);
-        alert("직원 추가 준비 중 오류가 발생했습니다.");
-        return;
-    }
-
-    const nextOrder =
-        Number(currentData?.[0]?.sort_order || 0) + 1;
+try {
+    nextOrder = await getNextSortOrder(config.table);
+} catch (error) {
+    console.error("직원 순서 조회 실패:", error);
+    alert("직원 추가 준비 중 오류가 발생했습니다.");
+    return;
+}
 
     const { error } = await supabaseClient
-        .from("master_installers")
+        .from(config.table)
         .insert({
             name,
             active: true,
@@ -207,7 +202,7 @@ window.editInstaller = async function (id) {
     if (!newName?.trim()) return;
 
     const { error } = await supabaseClient
-        .from("master_installers")
+        .from(config.table)
         .update({
             name: newName.trim()
         })
@@ -230,6 +225,9 @@ window.toggleInstallerActive = async function (
     id,
     currentActive
 ) {
+
+    const config = MASTER_CONFIG.installers;
+
     const nextActive = !currentActive;
 
     const message = nextActive
@@ -239,7 +237,7 @@ window.toggleInstallerActive = async function (
     if (!confirm(message)) return;
 
     const { error } = await supabaseClient
-        .from("master_installers")
+        .from(config.table)
         .update({
             active: nextActive
         })
