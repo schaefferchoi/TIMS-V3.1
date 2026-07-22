@@ -1,3 +1,22 @@
+const MASTER_CONFIG = {
+
+    installers: {
+        table: "master_installers",
+        title: "장착직원",
+        listId: "adminInstallerList",
+        inputId: "newInstallerName",
+        loadFunction: "loadInstallers"
+    },
+
+    dealers: {
+        table: "master_dealers",
+        title: "거래처",
+        listId: "adminDealerList",
+        inputId: "newDealerName",
+        loadFunction: "loadDealers"
+    }
+
+};
 document.addEventListener("DOMContentLoaded", () => {
 
     loadAdminInstallers();
@@ -185,15 +204,11 @@ try {
 }
 
 window.editInstaller = async function (id) {
-    const currentName =
-        document.querySelector(
-            `.admin-list-row button[onclick="editInstaller(${id})"]`
-        )
-        ?.closest(".admin-list-row")
-        ?.querySelector(".admin-list-name")
-        ?.textContent
-        ?.trim();
 
+    const config = MASTER_CONFIG.installers;
+
+    const currentName = "";
+    
     const newName = prompt(
         "수정할 직원명을 입력하세요.",
         currentName || ""
@@ -293,25 +308,6 @@ window.moveInstaller = async function (
 
     if (typeof loadInstallers === "function") {
         await loadInstallers();
-    }
-
-};
-const MASTER_CONFIG = {
-
-    installers: {
-        table: "master_installers",
-        title: "장착직원",
-        listId: "adminInstallerList",
-        inputId: "newInstallerName",
-        loadFunction: "loadInstallers"
-    },
-
-    dealers: {
-        table: "master_dealers",
-        title: "거래처",
-        listId: "adminDealerList",
-        inputId: "newDealerName",
-        loadFunction: "loadDealers"
     }
 
 };
