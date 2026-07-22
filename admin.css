@@ -1,0 +1,198 @@
+/* ===========================
+   관리자 공통
+=========================== */
+
+.admin-card{
+    background:#fff;
+    border-radius:12px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:0 2px 10px rgba(0,0,0,.08);
+}
+
+.admin-card h3{
+    margin-bottom:15px;
+}
+
+.admin-input-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.admin-input-row input{
+    flex:1;
+    padding:10px;
+    border:1px solid #ddd;
+    border-radius:8px;
+}
+
+.admin-input-row button{
+    padding:10px 18px;
+}
+
+/* ===========================
+   테이블
+=========================== */
+
+.admin-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.admin-table th{
+    background:#f5f7fa;
+    padding:12px;
+    border-bottom:2px solid #ddd;
+    text-align:center;
+}
+
+.admin-table td{
+    padding:10px;
+    border-bottom:1px solid #eee;
+    text-align:center;
+}
+
+.admin-table tr:hover{
+    background:#fafafa;
+}
+
+.admin-actions{
+    display:flex;
+    justify-content:center;
+    gap:6px;
+}
+
+.admin-actions button{
+    padding:6px 10px;
+    font-size:12px;
+}
+
+.status-active{
+    color:#1b8f3a;
+    font-weight:bold;
+}
+
+.status-inactive{
+    color:#999;
+}
+/* ===========================
+   관리자 테이블
+=========================== */
+
+.admin-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.admin-table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+    background: #ffffff;
+}
+
+.admin-table th {
+    padding: 12px 10px;
+    background: #f5f7fa;
+    border-bottom: 1px solid #dfe3e8;
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.admin-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #edf0f3;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.admin-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+    background: #fafbfc;
+}
+
+.admin-col-order {
+    width: 150px;
+}
+
+.admin-col-status {
+    width: 100px;
+}
+
+.admin-col-actions {
+    width: 220px;
+}
+
+.admin-name-cell {
+    font-weight: 600;
+    text-align: left !important;
+}
+
+.admin-order-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.admin-order-control span {
+    min-width: 22px;
+    font-weight: 700;
+}
+
+.admin-order-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #d8dde3;
+    border-radius: 6px;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.admin-order-btn:hover {
+    background: #f0f3f6;
+}
+
+.admin-actions {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+}
+
+.admin-actions button {
+    min-width: 72px;
+    padding: 7px 10px;
+    font-size: 13px;
+}
+
+.admin-status {
+    display: inline-block;
+    min-width: 58px;
+    padding: 5px 8px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.admin-status.active {
+    color: #17763a;
+    background: #e9f7ee;
+}
+
+.admin-status.inactive {
+    color: #777777;
+    background: #eeeeee;
+}
+
+.admin-row-inactive {
+    opacity: 0.65;
+}

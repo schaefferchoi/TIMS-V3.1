@@ -71,6 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
     showTab("dashboard");
+    loadInstallers();
 
 const installForm = document.getElementById("installForm");
 
@@ -1826,26 +1827,65 @@ function parseConfluencePhotos(html) {
 
     return result;
 }
-const installerButtons =
-    document.querySelectorAll("#installerButtons button");
+async function loadInstallers() {
+    const container =
+        document.getElementById("installerButtons");
 
-installerButtons.forEach(button=>{
+    if (!container) return;
 
-    button.addEventListener("click",()=>{
+    const { data, error } = await supabaseClient
+        .from("master_installers")
+        .select("id, name")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
 
-        button.classList.toggle("active");
+        console.log("직원 조회 결과:", data);
+        console.log("직원 조회 오류:", error);
 
-        const selected =
-            [...installerButtons]
-            .filter(btn=>btn.classList.contains("active"))
-            .map(btn=>btn.dataset.name);
+    if (error) {
+        console.error("장착직원 조회 실패:", error);
+        container.innerHTML =
+            `<span class="empty">직원 목록 조회 실패</span>`;
+        return;
+    }
 
-        document.getElementById("installer").value =
-            selected.join(", ");
+    container.innerHTML = (data || [])
+        .map(installer => `
+            <button
+                type="button"
+                data-id="${installer.id}"
+                data-name="${escapeHtml(installer.name)}">
+                ${escapeHtml(installer.name)}
+            </button>
+        `)
+        .join("");
 
+    bindInstallerButtons();
+}
+
+function bindInstallerButtons() {
+    const buttons =
+        document.querySelectorAll("#installerButtons button");
+
+    buttons.forEach(button => {
+        button.addEventListener("click", () => {
+            button.classList.toggle("active");
+
+            const selected =
+                [...document.querySelectorAll(
+                    "#installerButtons button.active"
+                )]
+                .map(btn => btn.dataset.name);
+
+            const installerInput =
+                document.getElementById("installer");
+
+            if (installerInput) {
+                installerInput.value = selected.join(", ");
+            }
+        });
     });
-
-});
+}
 async function importConfluencePhotos({
     attachments,
     photoMap,

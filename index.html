@@ -8,6 +8,7 @@
 
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css">
 </head>
 
 <body>
@@ -185,6 +186,7 @@
       <option value="일반">일반</option>
       <option value="보조">보조</option>
       <option value="B2B">B2B</option>
+      <option value="프로모션">프로모션</option>
       <option value="기타">기타</option>
     </select>
   </label>
@@ -193,14 +195,12 @@
     <select name="dealer_name">
       <option value="">선택</option>
       <option>TYM</option>
-      <option>ISEKI</option>
       <option>대동</option>
       <option>LS</option>
       <option>국제</option>
       <option>아세아</option>
       <option>구보다</option>
       <option>얀마</option>
-      <option>존디어</option>
       <option>기타</option>
     </select>
   </label>
@@ -276,6 +276,7 @@
       <select name="manufacturer">
         <option value="">선택</option>
         <option value="TYM">TYM</option>
+        <option value="ISEKI">ISEKI</option>
         <option value="대동">대동</option>
         <option value="LS">LS</option>
         <option value="국제">국제</option>
@@ -283,6 +284,7 @@
         <option value="구보다">구보다</option>
         <option value="얀마">얀마</option>
         <option value="펜트">펜트</option>
+        <option value="존디어">존디어</option>
         <option value="기타">기타</option>
       </select>
     </label>
@@ -464,15 +466,7 @@
          <label>장착직원</label>
 
         <div id="installerButtons" class="installer-buttons">
-            <button type="button" data-name="방혜환">방혜환</button>
-            <button type="button" data-name="유진근">유진근</button>
-            <button type="button" data-name="김재우">김재우</button>
-
-            <button type="button" data-name="최병진">최병진</button>
-            <button type="button" data-name="임우진">임우진</button>
-            <button type="button" data-name="최성원">최성원</button>
-
-            <button type="button" data-name="전충만">전충만</button>
+    
         </div>
         <input type="hidden" id="installer" name="installer">
 </div>
@@ -815,6 +809,70 @@ class="primary">
 </div>
 
 </section>
+<section id="adminTab" class="page hidden">
+
+    <div class="card">
+
+        <h2>관리자</h2>
+        <p>마스터 데이터를 관리합니다.</p>
+
+        <hr>
+
+        <h3>장착직원 관리</h3>
+
+        <div class="admin-input-row">
+
+            <input
+                id="newInstallerName"
+                type="text"
+                placeholder="직원명을 입력하세요">
+
+            <button
+                id="addInstallerBtn"
+                class="primary">
+
+                직원 추가
+
+            </button>
+
+        </div>
+
+        <div id="adminInstallerList">
+
+            불러오는 중...
+
+        </div>
+
+    </div>
+<div class="card admin-card">
+
+    <h3>거래처 관리</h3>
+
+    <div class="admin-input-row">
+
+        <input
+            id="newDealerName"
+            type="text"
+            placeholder="거래처명을 입력하세요">
+
+        <button
+            id="addDealerBtn"
+            class="primary">
+
+            거래처 추가
+
+        </button>
+
+    </div>
+
+    <div id="adminDealerList">
+
+        불러오는 중...
+
+    </div>
+
+</div>
+</section>
   </main>
 
   <div id="toast" class="toast"></div>
@@ -910,6 +968,7 @@ class="primary">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./script.js"></script>
   <script src="./export.js"></script>
+  <script src="./admin.js"></script>
 </body>
 
 </html>
