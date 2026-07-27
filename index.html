@@ -192,7 +192,7 @@
   </label>
 
   <label>거래처
-    <select name="dealer_name">
+    <select id="dealerName" name="dealer_name">
       <option value="">선택</option>
       <option>TYM</option>
       <option>대동</option>
@@ -273,7 +273,9 @@
     </label>
 
     <label>제조사
-      <select name="manufacturer">
+      <select 
+      id="manufacturerSelect"
+      name="manufacturer">
         <option value="">선택</option>
         <option value="TYM">TYM</option>
         <option value="ISEKI">ISEKI</option>
@@ -290,8 +292,14 @@
     </label>
 
     <label>모델명
-      <input name="model_sn" />
-    </label>
+    <input
+        id="modelInput"
+        name="model_sn"
+        list="modelList"
+        autocomplete="off">
+
+    <datalist id="modelList"></datalist>
+</label>
 
     <label>마력(HP)
       <input
@@ -329,23 +337,22 @@
     </label>
 
     <label>제조사
-      <select name="manufacturer_2">
-        <option value="">선택</option>
-        <option value="TYM">TYM</option>
-        <option value="대동">대동</option>
-        <option value="LS">LS</option>
-        <option value="국제">국제</option>
-        <option value="아세아">아세아</option>
-        <option value="구보다">구보다</option>
-        <option value="얀마">얀마</option>
-        <option value="펜트">펜트</option>
-        <option value="기타">기타</option>
-      </select>
+      <select 
+      id="manufacturerSelect2"
+      name="manufacturer_2">
+    <option value="">선택</option>
+</select>
     </label>
 
     <label>모델명
-      <input name="model_sn_2" />
-    </label>
+    <input
+        id="modelInput2"
+        name="model_sn_2"
+        list="modelList2"
+        autocomplete="off">
+
+    <datalist id="modelList2"></datalist>
+</label>
 
     <label>마력(HP)
       <input
@@ -856,6 +863,7 @@ class="primary">
             placeholder="거래처명을 입력하세요">
 
         <button
+            type="button"
             id="addDealerBtn"
             class="primary">
 
@@ -872,6 +880,63 @@ class="primary">
     </div>
 
 </div>
+
+<div class="card admin-card">
+
+    <h3>제조사 관리</h3>
+
+    <div class="admin-input-row">
+
+        <input
+            id="newManufacturerName"
+            type="text"
+            placeholder="제조사명을 입력하세요">
+
+        <button
+            type="button"
+            id="addManufacturerBtn"
+            class="primary">
+
+            제조사 추가
+
+        </button>
+
+    </div>
+
+    <div id="adminManufacturerList">
+
+        불러오는 중...
+
+    </div>
+  <div class="card admin-card">
+
+    <h3>모델 관리</h3>
+
+    <div class="admin-input-row">
+
+        <select id="adminModelManufacturer">
+            <option value="">제조사 선택</option>
+        </select>
+
+        <input
+            id="newModelName"
+            type="text"
+            placeholder="모델명을 입력하세요">
+
+        <button
+            type="button"
+            id="addModelBtn"
+            class="primary">
+            모델 추가
+        </button>
+
+    </div>
+
+    <div id="adminModelList">
+        제조사를 선택하세요.
+    </div>
+
+</div>  
 </section>
   </main>
 

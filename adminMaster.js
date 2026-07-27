@@ -55,34 +55,73 @@ async function addMasterItem(config) {
 }
 async function editMasterItem(config, id) {
 
-    const name = prompt(
-        `${config.title}명을 수정하세요.`
+    const { data, error } = await supabaseClient
+        .from(config.table)
+        .select("name")
+        .eq("id", id)
+        .single();
+
+    if (error) {
+        console.error(error);
+        alert(`${config.title} 정보를 불러오지 못했습니다.`);
+        return false;
+    }
+
+    const newName = prompt(
+        `${config.title}명을 수정하세요.`,
+        data.name
     );
 
-    if (name === null) return false;
+    if (newName === null) return false;
 
-    const newName = name.trim();
+    const name = newName.trim();
 
-    if (!newName) {
+    if (!name) {
         alert("이름을 입력하세요.");
+        return false;
+    }
+
+    const { error: updateError } = await supabaseClient
+        .from(config.table)
+        .update({
+            name
+        })
+        .eq("id", id);
+
+    if (updateError) {
+        console.error(updateError);
+        alert(`${config.title} 수정 실패`);
+        return false;
+    }
+
+    return true;
+}
+async function toggleMasterItem(config, id, currentActive) {
+
+    const nextActive = !currentActive;
+
+    const message = nextActive
+        ? `${config.title}을(를) 다시 활성화하시겠습니까?`
+        : `${config.title}을(를) 비활성화하시겠습니까?`;
+
+    if (!confirm(message)) {
         return false;
     }
 
     const { error } = await supabaseClient
         .from(config.table)
         .update({
-            name: newName
+            active: nextActive
         })
         .eq("id", id);
 
     if (error) {
-        console.error(error);
-        alert(`${config.title} 수정 실패`);
+        console.error(`${config.title} 상태 변경 실패:`, error);
+        alert(`${config.title} 상태 변경에 실패했습니다.`);
         return false;
     }
 
     return true;
-
 }
 async function loadMasterItems(config) {
 
@@ -136,4 +175,56 @@ async function loadMasterItems(config) {
     }
 
     return data;
+}
+async function moveMasterItem(config, id, currentOrder, direction) {
+
+    const targetOrder = currentOrder + direction;
+
+    if (targetOrder < 1) {
+        return false;
+    }
+
+    const { data: target, error: targetError } =
+        await supabaseClient
+            .from(config.table)
+            .select("id, sort_order")
+            .eq("sort_order", targetOrder)
+            .maybeSingle();
+
+    if (targetError) {
+        console.error(targetError);
+        return false;
+    }
+
+    if (!target) {
+        return false;
+    }
+
+    const { error: error1 } =
+        await supabaseClient
+            .from(config.table)
+            .update({
+                sort_order: targetOrder
+            })
+            .eq("id", id);
+
+    if (error1) {
+        console.error(error1);
+        return false;
+    }
+
+    const { error: error2 } =
+        await supabaseClient
+            .from(config.table)
+            .update({
+                sort_order: currentOrder
+            })
+            .eq("id", target.id);
+
+    if (error2) {
+        console.error(error2);
+        return false;
+    }
+
+    return true;
 }

@@ -196,3 +196,7 @@
 .admin-row-inactive {
     opacity: 0.65;
 }
+#newModelName{
+    flex:1;
+    min-width:200px;
+}

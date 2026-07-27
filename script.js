@@ -72,6 +72,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     showTab("dashboard");
     loadInstallers();
+    loadDealers();
+    loadManufacturers();
 
 const installForm = document.getElementById("installForm");
 
@@ -2419,3 +2421,143 @@ document
 document
     .getElementById("exportPdfBtn")
     ?.addEventListener("click", exportRecordsToPdf);
+async function loadDealers() {
+
+    const select =
+        document.getElementById("dealerName");
+
+    if (!select) return;
+
+    const { data, error } =
+        await supabaseClient
+            .from("master_dealers")
+            .select("name")
+            .eq("active", true)
+            .order("sort_order");
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    select.innerHTML =
+        `<option value="">선택</option>`;
+
+    data.forEach(item => {
+
+        select.innerHTML += `
+            <option value="${item.name}">
+                ${item.name}
+            </option>
+        `;
+
+    });
+
+}    
+async function loadManufacturers() {
+
+    const selects = document.querySelectorAll(
+        'select[name="manufacturer"], select[name="manufacturer_2"]'
+    );
+
+    if (!selects.length) return;
+
+    const { data, error } = await supabaseClient
+        .from("master_manufacturers")
+        .select("name")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+    console.log("제조사 DATA:", data);    
+
+    if (error) {
+        console.error("제조사 조회 오류:", error);
+        return;
+    }
+
+    selects.forEach(select => {
+
+        const currentValue = select.value;
+
+        select.innerHTML =
+            `<option value="">선택</option>`;
+
+        data.forEach(item => {
+
+            const option = document.createElement("option");
+
+            option.value = item.name;
+            option.textContent = item.name;
+
+            select.appendChild(option);
+        });
+
+        if (
+            currentValue &&
+            data.some(item => item.name === currentValue)
+        ) {
+            select.value = currentValue;
+        }
+    });
+
+    console.log("제조사 조회 완료:", data);
+
+}
+async function loadModels(manufacturerName, targetListId) {
+
+    const targetList =
+        document.getElementById(targetListId);
+
+    if (!targetList) return;
+
+    targetList.innerHTML = "";
+
+    if (!manufacturerName) return;
+
+    const { data, error } = await supabaseClient
+        .from("master_models")
+        .select(`
+            name,
+            manufacturer:master_manufacturers!inner(name)
+        `)
+        .eq("manufacturer.name", manufacturerName)
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("모델 조회 오류:", error);
+        return;
+    }
+
+    data.forEach(item => {
+
+        const option = document.createElement("option");
+
+        option.value = item.name;
+
+        targetList.appendChild(option);
+    });
+
+    console.log("모델 조회 완료:", manufacturerName, data);
+}
+document
+    .getElementById("manufacturerSelect")
+    ?.addEventListener("change", (event) => {
+
+        loadModels(
+            event.target.value,
+            "modelList"
+        );
+
+    });
+
+document
+    .getElementById("manufacturerSelect2")
+    ?.addEventListener("change", (event) => {
+
+        loadModels(
+            event.target.value,
+            "modelList2"
+        );
+
+    });
