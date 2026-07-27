@@ -24,7 +24,7 @@
     <button class="tab" data-tab="form">장착등록</button>
     <button class="tab" data-tab="list">장착목록</button>
     <button class="tab" data-tab="setting">설정</button>
-    <button class="tab" data-tab="admin">관리자</button>
+    <button class="tab hidden" data-tab="admin">관리자</button>
   </nav>
 
   <main class="container">
@@ -814,7 +814,28 @@ class="primary">
 </button>
 
 </div>
+<div class="settings-card">
+    <h3>관리자</h3>
+      <p class="admin-desc">
+        관리자 기능을 사용하려면 로그인하세요.
+     </p>
+    <div id="adminLoggedOut">
+        <button type="button" id="openAdminLoginBtn">
+            관리자 로그인
+        </button>
+    </div>
 
+    <div id="adminLoggedIn" class="hidden">
+        <p>
+            관리자:
+            <strong id="adminUserName">-</strong>
+        </p>
+
+        <button type="button" id="adminLogoutBtn">
+            로그아웃
+        </button>
+    </div>
+</div>
 </section>
 <section id="adminTab" class="page hidden">
 
@@ -1027,7 +1048,45 @@ class="primary">
         </div>
     </div>
 </div>
+<!-- 관리자 로그인 모달 -->
+<div id="loginModal" class="login-modal hidden">
+    <div class="login-dialog">
 
+        <h2>관리자 로그인</h2>
+
+        <label>
+            이메일
+            <input
+                id="adminEmail"
+                type="email"
+                autocomplete="username">
+        </label>
+
+        <label>
+            비밀번호
+            <input
+                id="adminPassword"
+                type="password"
+                autocomplete="current-password">
+        </label>
+
+        <div class="login-buttons">
+            <button
+                type="button"
+                id="adminLoginBtn"
+                class="primary">
+                로그인
+            </button>
+
+            <button
+                type="button"
+                id="closeLoginModalBtn">
+                취소
+            </button>
+        </div>
+
+    </div>
+</div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

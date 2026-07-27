@@ -2561,3 +2561,137 @@ document
         );
 
     });
+document
+    .getElementById("openAdminLoginBtn")
+    .addEventListener("click", () => {
+        document
+            .getElementById("loginModal")
+            .classList.remove("hidden");
+    });
+
+document
+    .getElementById("closeLoginModalBtn")
+    .addEventListener("click", () => {
+        document
+            .getElementById("loginModal")
+            .classList.add("hidden");
+    });
+async function handleAdminLogin() {
+    const email = document
+        .getElementById("adminEmail")
+        .value
+        .trim();
+
+    const password = document
+        .getElementById("adminPassword")
+        .value;
+
+    if (!email || !password) {
+        alert("이메일과 비밀번호를 입력해주세요.");
+        return;
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+    });
+
+    if (error) {
+        console.error("ADMIN LOGIN ERROR:", error);
+        alert("이메일 또는 비밀번호가 올바르지 않습니다.");
+        return;
+    }
+
+    const user = data.user;
+
+    const { data: admin, error: adminError } = await supabaseClient
+        .from("master_admins")
+        .select("id, email, name, active")
+        .eq("email", user.email)
+        .eq("active", true)
+        .maybeSingle();
+
+    if (adminError) {
+        console.error("ADMIN CHECK ERROR:", adminError);
+        await supabaseClient.auth.signOut();
+        alert("관리자 권한 확인 중 오류가 발생했습니다.");
+        return;
+    }
+
+    if (!admin) {
+        await supabaseClient.auth.signOut();
+        alert("관리자 권한이 없습니다.");
+        return;
+    }
+
+    document
+        .getElementById("loginModal")
+        .classList.add("hidden");
+
+    document
+        .getElementById("adminLoggedOut")
+        .classList.add("hidden");
+
+    document
+        .getElementById("adminLoggedIn")
+        .classList.remove("hidden");
+
+    document.getElementById("adminUserName").textContent =
+        admin.name || admin.email;
+    
+     showAdminTab();    
+
+    alert("관리자 로그인이 완료되었습니다.");
+}
+
+document
+    .getElementById("adminLoginBtn")
+    .addEventListener("click", handleAdminLogin);        
+function showAdminTab() {
+    const adminTabButton = document.querySelector('[data-tab="admin"]');
+
+    if (adminTabButton) {
+        adminTabButton.classList.remove("hidden");
+    }
+}
+
+function hideAdminTab() {
+    const adminTabButton = document.querySelector('[data-tab="admin"]');
+
+    if (adminTabButton) {
+        adminTabButton.classList.add("hidden");
+    }
+
+    const adminPage = document.getElementById("adminTab");
+
+    if (adminPage) {
+        adminPage.classList.add("hidden");
+    }
+}
+async function handleAdminLogout() {
+    const { error } = await supabaseClient.auth.signOut();
+
+    if (error) {
+        console.error("ADMIN LOGOUT ERROR:", error);
+        alert("로그아웃 중 오류가 발생했습니다.");
+        return;
+    }
+
+    document
+        .getElementById("adminLoggedOut")
+        .classList.remove("hidden");
+
+    document
+        .getElementById("adminLoggedIn")
+        .classList.add("hidden");
+
+    document.getElementById("adminUserName").textContent = "-";
+
+    hideAdminTab();
+
+    alert("로그아웃되었습니다.");
+}
+
+document
+    .getElementById("adminLogoutBtn")
+    .addEventListener("click", handleAdminLogout);    
