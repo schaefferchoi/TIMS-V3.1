@@ -186,25 +186,20 @@
       <option value="일반">일반</option>
       <option value="보조">보조</option>
       <option value="B2B">B2B</option>
-      <option value="프로모션">프로모션</option>
       <option value="기타">기타</option>
     </select>
   </label>
 
-  <label>거래처
-    <select id="dealerName" name="dealer_name">
-      <option value="">선택</option>
-      <option>TYM</option>
-      <option>대동</option>
-      <option>LS</option>
-      <option>국제</option>
-      <option>아세아</option>
-      <option>구보다</option>
-      <option>얀마</option>
-      <option>기타</option>
+  <label>거래처 유형
+    <select id="dealerType" name="dealer_type_id">
+        <option value="">선택</option>
     </select>
-  </label>
-
+</label>
+<label>거래처명
+    <select id="dealerName" name="dealer_id">
+        <option value="">선택</option>
+    </select>
+</label>
   <label>대표자
     <input name="representative" />
   </label>
@@ -874,21 +869,21 @@ class="primary">
     </div>
 <div class="card admin-card">
 
-    <h3>거래처 관리</h3>
+    <h3>거래처 유형 관리</h3>
 
     <div class="admin-input-row">
 
         <input
             id="newDealerName"
             type="text"
-            placeholder="거래처명을 입력하세요">
+            placeholder="거래처 유형을 입력하세요">
 
         <button
             type="button"
             id="addDealerBtn"
             class="primary">
 
-            거래처 추가
+            거래처 유형 추가
 
         </button>
 
@@ -901,7 +896,31 @@ class="primary">
     </div>
 
 </div>
+<section class="admin-card">
 
+    <h3>거래처명 관리</h3>
+
+    <div class="admin-form-row">
+
+        <select id="adminDealerType">
+            <option value="">거래처 유형 선택</option>
+        </select>
+
+        <input
+            type="text"
+            id="newDealerCompany"
+            placeholder="거래처명을 입력하세요"
+        >
+
+        <button id="addDealerCompanyBtn">
+            거래처 추가
+        </button>
+
+    </div>
+
+    <div id="adminDealerCompanyList"></div>
+
+</section>
 <div class="card admin-card">
 
     <h3>제조사 관리</h3>
@@ -1088,12 +1107,15 @@ class="primary">
     </div>
 </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="supabase.js"></script>
+  
   <script src="./script.js"></script>
   <script src="./export.js"></script>
+
   <script src="adminMaster.js"></script>
   <script src="./admin.js"></script>
+  <script src="./adminDealer.js"></script>
 </body>
 
 </html>

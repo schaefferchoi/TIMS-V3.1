@@ -9,8 +9,8 @@ const MASTER_CONFIG = {
     },
 
     dealers: {
-        table: "master_dealers",
-        title: "거래처",
+        table: "master_dealer_types",
+        title: "거래처 유형",
         listId: "adminDealerList",
         inputId: "newDealerName",
         loadFunction: "loadDealers"
@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadAdminInstallers();
     loadAdminDealers();
+    loadAdminDealerTypeSelect();
     loadAdminManufacturers();
     loadAdminManufacturerSelect();
     
@@ -48,7 +49,10 @@ document.addEventListener("DOMContentLoaded", () => {
         ?.addEventListener("click", addDealer);
     document
     .getElementById("addManufacturerBtn")
-    ?.addEventListener("click", addManufacturer);    
+    ?.addEventListener("click", addManufacturer);
+    document
+    .getElementById("addDealerCompanyBtn")
+    ?.addEventListener("click", addDealerCompany);    
 });
 
 async function loadAdminInstallers() {
@@ -209,7 +213,7 @@ async function loadAdminDealers() {
             <thead>
                 <tr>
                     <th class="admin-col-order">순서</th>
-                    <th>거래처명</th>
+                    <th>거래처 유형</th>
                     <th class="admin-col-status">상태</th>
                     <th class="admin-col-actions">관리</th>
                 </tr>
@@ -740,6 +744,37 @@ async function loadAdminManufacturerSelect() {
 
     });
 
+}
+async function loadAdminDealerTypeSelect() {
+
+    const select =
+        document.getElementById("adminDealerType");
+
+    if (!select) return;
+
+    const { data, error } =
+        await supabaseClient
+            .from("master_dealer_types")
+            .select("id,name")
+            .eq("active", true)
+            .order("sort_order");
+
+    if (error) {
+        console.error("거래처 유형 조회 실패:", error);
+        return;
+    }
+
+    select.innerHTML =
+        `<option value="">거래처 유형 선택</option>`;
+
+    data.forEach(item => {
+
+        select.innerHTML += `
+            <option value="${item.id}">
+                ${item.name}
+            </option>
+        `;
+    });
 }
 async function loadAdminModels(manufacturerName) {
 

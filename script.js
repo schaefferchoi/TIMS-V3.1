@@ -166,6 +166,10 @@ function collectFormData() {
     }
 
     const formData = new FormData(form);
+    console.log("dealer_type_id =", formData.get("dealer_type_id"));
+    console.log("dealer_id      =", formData.get("dealer_id"));
+
+    console.log("FORM DATA:", [...formData.entries()]);
     const recordId =
         document.getElementById("recordId")?.value.trim() || "";
 
@@ -187,7 +191,10 @@ function collectFormData() {
 
         return Number.isNaN(number) ? null : number;
     };
-
+    console.log("record 생성 직전:", {
+        dealer_type_id: formData.get("dealer_type_id"),
+        dealer_id: formData.get("dealer_id")
+});
     return {
         id: recordId || undefined,
 
@@ -209,11 +216,23 @@ function collectFormData() {
             formData.get("sales_type") || null,
 
         dealer_name:
-            formData.get("dealer_name") || null,
+            document.getElementById("dealerName")
+                ?.selectedOptions[0]
+                ?.textContent
+                ?.trim() || null,
 
-        representative:
-            formData.get("representative") || null,
+        dealer_type_id:
+            formData.get("dealer_type_id")
+                ? Number(formData.get("dealer_type_id"))
+                : null,
 
+        dealer_id:
+            formData.get("dealer_id")
+                ? Number(formData.get("dealer_id"))
+                : null,
+
+representative:
+    formData.get("representative") || null,
         // 3. 제품 정보
         product_name:
             productName || null,
@@ -335,7 +354,7 @@ async function saveRecord(record) {
     let result;
 
 if (record.id) {
-
+    console.log("UPDATE DATA:", record);
     result = await supabaseClient
         .from("install_records")
         .update(record)
@@ -346,8 +365,8 @@ if (record.id) {
 } else {
 
     const { id, ...insertRecord } = record;
-
-   result = await supabaseClient
+    console.log("INSERT DATA:", insertRecord);
+    result = await supabaseClient
      .from("install_records")
      .insert([insertRecord])
      .select()
@@ -386,15 +405,25 @@ async function uploadTempPhotos(recordId) {
             const ext = file.name.split(".").pop().toLowerCase();
             const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
-            const { error: uploadError } = await supabaseClient.storage
-                .from("install-photos")
-                .upload(fileName, file);
+            console.log("UPLOAD FILE:", fileName);
+            console.log("BUCKET:", "install-photos");
+
+            const {
+                 data: uploadData,
+                 error: uploadError
+                    } =
+            await supabaseClient.storage
+             .from("install-photos")
+             .upload(fileName, file);
+
+                console.log("UPLOAD DATA:", uploadData);
+                console.log("UPLOAD ERROR:", uploadError);
 
             if (uploadError) {
                 console.error(uploadError);
-                alert("사진 업로드 실패");
+                alert(uploadError.message);
                 return;
-            }
+}
 
             const { data: publicUrlData } = supabaseClient.storage
                 .from("install-photos")
@@ -486,9 +515,15 @@ let allRecords = [];
 
 async function loadRecords() {
     const { data, error } = await supabaseClient
-        .from("install_records")
-        .select("*")
-        .order("created_at", { ascending: false });
+    .from("install_records")
+    .select(`
+        *,
+        dealer:master_dealers (
+            dealer_name,
+            dealer_type_id
+        )
+    `)
+    .order("created_at", { ascending: false });
 
     if (error) {
         console.error(error);
@@ -523,10 +558,19 @@ async function loadRecords() {
     console.log("현재 목록", data);
 
     allRecords = (data || []).map(record => ({
-        ...record,
-        photoCount: photoTypeMap[record.id]?.size || 0,
-        photoTypes: photoSetMap[record.id] || []
-    }));
+    ...record,
+
+    dealer_name:
+        record.dealer?.dealer_name ||
+        record.dealer_name ||
+        "",
+
+    photoCount:
+        photoTypeMap[record.id]?.size || 0,
+
+    photoTypes:
+        photoSetMap[record.id] || []
+}));
 
     applyRecordFilters();
 }
@@ -1221,6 +1265,9 @@ async function generateConfluence() {
         return;
     }
 
+    // 기존 기록에서 새로 선택한 사진을 먼저 저장
+    await uploadTempPhotos(recordId);
+
     const url = localStorage.getItem("confUrl");
     const email = localStorage.getItem("confEmail");
     const token = localStorage.getItem("confToken");
@@ -1244,6 +1291,10 @@ async function generateConfluence() {
         .eq("record_id", recordId)
         .order("created_at", { ascending: true });
 
+        console.log("CONFLUENCE RECORD ID:", recordId);
+        console.log("CONFLUENCE PHOTOS:", photos);
+        console.log("CONFLUENCE PHOTO ERROR:", photoError);
+    
     if (photoError) {
         console.error(photoError);
         alert("사진 조회 실패");
@@ -1258,9 +1309,13 @@ async function generateConfluence() {
         ? record.id.substring(0, 8)
         : Date.now();
 
-   const pageTitle =
+    const pageTitle =
     `[${dateCode}] ${record.dealer_region || record.dealer_name || ""} ${record.manufacturer || ""}${record.model_sn || ""}_${record.box_sn || ""}`;
-
+        console.log("SMOOTH-ACTION 전송 사진:", photos);
+        console.log(
+            "사진 타입:",
+    (photos || []).map(photo => photo.photo_type)
+);
     const response = await fetch(
         "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
         {
@@ -1284,10 +1339,15 @@ async function generateConfluence() {
     const result = await response.json();
 
     if (!response.ok) {
-        console.error(result);
-        alert("Confluence 동기화 실패");
-        return;
-    }
+    console.error("Confluence 동기화 오류:", result);
+
+    alert(
+        "Confluence 동기화 실패\n\n" +
+        (result.error || JSON.stringify(result))
+    );
+
+    return;
+}
 
   const { data: updateData, error: updateError } = await supabaseClient
     .from("install_records")
@@ -2424,14 +2484,14 @@ document
 async function loadDealers() {
 
     const select =
-        document.getElementById("dealerName");
+        document.getElementById("dealerType");
 
     if (!select) return;
 
     const { data, error } =
         await supabaseClient
-            .from("master_dealers")
-            .select("name")
+            .from("master_dealer_types")
+            .select("id,name")
             .eq("active", true)
             .order("sort_order");
 
@@ -2446,13 +2506,47 @@ async function loadDealers() {
     data.forEach(item => {
 
         select.innerHTML += `
-            <option value="${item.name}">
+            <option value="${item.id}">
                 ${item.name}
             </option>
         `;
 
     });
 
+}
+async function loadDealerNames(typeId) {
+
+    const select =
+        document.getElementById("dealerName");
+
+    if (!select) return;
+
+    select.innerHTML =
+        `<option value="">선택</option>`;
+
+    if (!typeId) return;
+
+    const { data, error } =
+        await supabaseClient
+            .from("master_dealers")
+            .select("id, dealer_name")
+            .eq("dealer_type_id", typeId)
+            .eq("active", true)
+            .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("거래처명 조회 실패:",error);
+        return;
+    }
+
+    data.forEach(item => {
+
+        select.innerHTML += `
+            <option value="${item.id}">
+                ${item.dealer_name}
+            </option>
+        `;
+    });
 }    
 async function loadManufacturers() {
 
@@ -2694,4 +2788,11 @@ async function handleAdminLogout() {
 
 document
     .getElementById("adminLogoutBtn")
-    .addEventListener("click", handleAdminLogout);    
+    ?.addEventListener("click", handleAdminLogout);    
+document
+    .getElementById("dealerType")
+    .addEventListener("change", e => {
+
+        loadDealerNames(e.target.value);
+
+    });    
