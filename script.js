@@ -2516,13 +2516,15 @@ async function loadDealers() {
 }
 async function loadDealerNames(typeId) {
 
-    const select =
+    const dealerInput =
         document.getElementById("dealerName");
 
-    if (!select) return;
+    const dealerList =
+        document.getElementById("dealerNameList");
 
-    select.innerHTML =
-        `<option value="">선택</option>`;
+    if (!dealerInput || !dealerList) return;
+
+    dealerList.innerHTML = "";
 
     if (!typeId) return;
 
@@ -2541,11 +2543,10 @@ async function loadDealerNames(typeId) {
 
     data.forEach(item => {
 
-        select.innerHTML += `
-            <option value="${item.id}">
-                ${item.dealer_name}
-            </option>
-        `;
+    dealerList.innerHTML += `
+        <option value="${item.dealer_name}">
+    `;
+
     });
 }    
 async function loadManufacturers() {

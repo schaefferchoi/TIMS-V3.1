@@ -180,29 +180,45 @@
 
 <div class="grid three">
 
-  <label>판매구분
-    <select name="sales_type">
-      <option value="">선택</option>
-      <option value="일반">일반</option>
-      <option value="보조">보조</option>
-      <option value="B2B">B2B</option>
-      <option value="기타">기타</option>
-    </select>
-  </label>
+    <label>
+        판매구분
+        <select name="sales_type">
+            <option value="">선택</option>
+            <option value="일반">일반</option>
+            <option value="보조">보조</option>
+            <option value="B2B">B2B</option>
+            <option value="기타">기타</option>
+        </select>
+    </label>
 
-  <label>거래처 유형
-    <select id="dealerType" name="dealer_type_id">
-        <option value="">선택</option>
-    </select>
-</label>
-<label>거래처명
-    <select id="dealerName" name="dealer_id">
-        <option value="">선택</option>
-    </select>
-</label>
-  <label>대표자
-    <input name="representative" />
-  </label>
+    <label>
+        거래처 유형
+        <select id="dealerType" name="dealer_type_id">
+            <option value="">선택</option>
+        </select>
+    </label>
+
+    <label>
+        거래처명
+        <input
+            type="text"
+            id="dealerName"
+            name="dealer_id"
+            list="dealerNameList"
+            placeholder="거래처 선택 또는 직접 입력"
+            autocomplete="off"
+        />
+
+        <datalist id="dealerNameList"></datalist>
+    </label>
+
+    <label>
+        대표자
+        <input
+            type="text"
+            name="representative"
+        />
+    </label>
 
 </div>
 
