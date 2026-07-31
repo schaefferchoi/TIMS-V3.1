@@ -1502,6 +1502,14 @@ async function importConfluence() {
     const email = localStorage.getItem("confEmail");
     const token = localStorage.getItem("confToken");
 
+    if (!url || !email || !token) {
+        alert(
+            "Confluence 설정값이 없습니다.\n\n" +
+            "설정 탭에서 URL, 이메일, API Token을 저장한 후 다시 시도하세요."
+        );
+        return;
+    }
+
     const response = await fetch(
         "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/import-confluence",
         {
@@ -1522,7 +1530,10 @@ async function importConfluence() {
 
     if (!response.ok) {
         console.error(result);
-        alert("Confluence 가져오기 실패");
+        alert(
+            "Confluence 가져오기 실패\n\n" +
+            (result.error || result.message || `HTTP ${response.status}`)
+        );
         return;
     }
 
