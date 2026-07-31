@@ -1,0 +1,174 @@
+.admin-master-card {
+    max-width: 900px;
+    margin-inline: auto;
+}
+
+.admin-master-header,
+.admin-master-form,
+.admin-master-form-actions,
+.admin-master-tabs,
+.admin-order-cell,
+.admin-action-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-master-header {
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.admin-master-header h2,
+.admin-master-header p {
+    margin: 0;
+}
+
+.admin-master-header p {
+    margin-top: 6px;
+    color: var(--m);
+    font-size: 13px;
+}
+
+.admin-master-tabs {
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--b);
+}
+
+.admin-master-tab {
+    background: #e8eef6;
+    color: var(--p);
+}
+
+.admin-master-tab.active {
+    background: var(--p);
+    color: #fff;
+}
+
+.admin-master-form {
+    align-items: flex-end;
+    margin: 16px 0 10px;
+}
+
+.admin-master-form label {
+    flex: 1;
+    margin: 0;
+}
+
+.admin-master-form input {
+    width: 100%;
+}
+
+.admin-master-form select {
+    width: 100%;
+}
+
+.admin-master-form > label {
+    min-width: 180px;
+}
+
+.admin-master-tabs {
+    flex-wrap: wrap;
+}
+
+.admin-auth-card {
+    margin-top: 14px;
+}
+
+.admin-login-form {
+    display: grid;
+    gap: 12px;
+    max-width: 520px;
+}
+
+.admin-login-form button {
+    justify-self: start;
+}
+
+.admin-master-message {
+    min-height: 24px;
+    color: var(--ok);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.admin-master-message.error {
+    color: var(--d);
+}
+
+.admin-master-table th:first-child {
+    width: 100px;
+}
+
+.admin-master-table th:nth-child(3) {
+    width: 90px;
+}
+
+.admin-master-table th:last-child {
+    width: 260px;
+}
+
+.admin-master-table tr.inactive td {
+    color: var(--m);
+    background: #f8fafc;
+}
+
+.admin-order-cell button,
+.admin-action-cell button {
+    padding: 7px 10px;
+    border: 1px solid var(--b);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--p);
+}
+
+.admin-order-cell button:disabled {
+    cursor: default;
+    opacity: .35;
+}
+
+.admin-action-cell .admin-delete-button {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: var(--d);
+}
+
+.admin-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.admin-status.on {
+    background: #dcfce7;
+    color: var(--ok);
+}
+
+.admin-status.off {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+@media (max-width: 640px) {
+    .admin-master-header,
+    .admin-master-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .admin-master-header button,
+    .admin-master-form-actions button {
+        flex: 1;
+    }
+
+    .admin-master-table th:last-child {
+        width: auto;
+    }
+
+    .admin-action-cell {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

@@ -976,3 +976,67 @@ th {
         height: 260px;
     }
 }
+/* =========================================
+   사진 누락 확인 모달
+========================================= */
+
+.missing-photo-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 280px;
+    margin: 18px 0 22px;
+    padding: 14px;
+    overflow-y: auto;
+    border: 1px solid #dbe4f0;
+    border-radius: 12px;
+    background: #f7f9fc;
+}
+
+.missing-photo-list > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #253041;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.missing-photo-list > div::before {
+    content: "!";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff1d6;
+    color: #c87500;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+#missingPhotoModal .modal-box {
+    width: min(480px, calc(100% - 32px));
+}
+
+#missingPhotoModal .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+@media (max-width: 640px) {
+    #missingPhotoModal .modal-actions {
+        flex-direction: column;
+    }
+
+    #missingPhotoModal .modal-actions button {
+        width: 100%;
+    }
+}

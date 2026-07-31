@@ -5,12 +5,37 @@ let formChanged = false;
 let pendingTabName = null;
 let monthlyInstallChartInstance = null;
 
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+}
+
+function isSafeExternalUrl(value, allowedHostSuffix = null) {
+    try {
+        const url = new URL(String(value || ""));
+        if (url.protocol !== "https:") return false;
+        if (!allowedHostSuffix) return true;
+        return url.hostname === allowedHostSuffix ||
+            url.hostname.endsWith(`.${allowedHostSuffix}`);
+    } catch {
+        return false;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
 
     const tabs = document.querySelectorAll(".tab");
     const pages = document.querySelectorAll(".page");
 
     function showTab(tabName){
+        if (tabName === "admin" && !window.isMasterAdmin) {
+            tabName = "setting";
+            window.showAdminLoginRequired?.();
+        }
 
         pages.forEach(page=>{
             page.classList.add("hidden");
@@ -205,6 +230,12 @@ function collectFormData() {
         sales_type:
             formData.get("sales_type") || null,
 
+        dealer_type_id:
+            toNullableInteger(formData.get("dealer_type_id")),
+
+        dealer_id:
+            toNullableInteger(formData.get("dealer_id")),
+
         dealer_name:
             formData.get("dealer_name") || null,
 
@@ -328,7 +359,130 @@ function collectFormData() {
     };
 }
 
+async function getMissingPhotoLabels(record) {
+    const missing = [];
+    const savedPhotoTypes = new Set();
+
+    if (record.id) {
+        const { data, error } = await supabaseClient
+            .from("install_photos")
+            .select("photo_type")
+            .eq("record_id", record.id);
+
+        if (error) {
+            throw new Error(`기존 사진 확인 실패: ${error.message}`);
+        }
+
+        (data || []).forEach(photo => savedPhotoTypes.add(photo.photo_type));
+    }
+
+    const photoRequirements = [
+        ["install", "전체 사진"],
+        ["vehicle", "차량 사진"],
+        ["machineNumber", "기대번호 사진"],
+        ["eps", "EPS 사진"],
+        ["cpg", "CPG 사진"],
+        ["acu", "ACU 사진"],
+        ["version", "버전 사진"]
+    ];
+
+    photoRequirements.forEach(([type, label]) => {
+        const photos = tempPhotos[type] || [];
+
+        if (photos.length === 0 && !savedPhotoTypes.has(type)) {
+            missing.push(label);
+        }
+    });
+
+    const rearCameraInstalled =
+        String(record.rear_camera || "").trim() &&
+        String(record.rear_camera || "").trim() !== "미장착";
+
+    if (rearCameraInstalled) {
+        const rearCameraPhotos = tempPhotos.rearCamera || [];
+
+        if (
+            rearCameraPhotos.length === 0 &&
+            !savedPhotoTypes.has("rearCamera")
+        ) {
+            missing.push("후방카메라 사진");
+        }
+    }
+
+    return missing;
+}
+
+function showMissingPhotoModal(missingPhotoLabels) {
+    return new Promise(resolve => {
+        const modal =
+            document.getElementById("missingPhotoModal");
+
+        const list =
+            document.getElementById("missingPhotoList");
+
+        const returnButton =
+            document.getElementById("returnToPhotoBtn");
+
+        const saveButton =
+            document.getElementById("saveWithoutPhotoBtn");
+
+        if (!modal || !list || !returnButton || !saveButton) {
+    console.error("사진 모달 요소를 찾지 못했습니다.", {
+        modal,
+        list,
+        returnButton,
+        saveButton
+    });
+
+    resolve(false);
+    return;
+}
+
+        list.innerHTML = missingPhotoLabels
+            .map(label => `<div>${label}</div>`)
+            .join("");
+
+        modal.classList.remove("hidden");
+
+        const closeModal = result => {
+            modal.classList.add("hidden");
+
+            returnButton.onclick = null;
+            saveButton.onclick = null;
+
+            resolve(result);
+        };
+
+        returnButton.onclick = () => {
+            closeModal(false);
+        };
+
+        saveButton.onclick = () => {
+            closeModal(true);
+        };
+    });
+}
+
 async function saveRecord(record) {
+    let missingPhotoLabels;
+
+    try {
+        missingPhotoLabels = await getMissingPhotoLabels(record);
+    } catch (error) {
+        console.error(error);
+        alert("사진 등록 상태를 확인하지 못했습니다.");
+        return false;
+    }
+
+    if (missingPhotoLabels.length > 0) {
+    const shouldContinue =
+        await showMissingPhotoModal(missingPhotoLabels);
+
+    if (!shouldContinue) {
+        return false;
+    }
+}
+
     let result;
 
 if (record.id) {
@@ -367,7 +521,13 @@ if (savedRecord && savedRecord.id) {
     document.getElementById("recordId").value = savedRecord.id;
 }
 
-await uploadTempPhotos(savedRecord.id);
+try {
+    await uploadTempPhotos(savedRecord.id);
+} catch (error) {
+    console.error(error);
+    alert("기본 정보는 저장되었지만 일부 사진 저장에 실패했습니다. 다시 시도해 주세요.");
+    return false;
+}
 
 formChanged = false;
 
@@ -379,7 +539,9 @@ async function uploadTempPhotos(recordId) {
     if (!recordId) return;
 
     for (const photoType in tempPhotos) {
-        for (const file of tempPhotos[photoType]) {
+        const pendingFiles = [...tempPhotos[photoType]];
+
+        for (const file of pendingFiles) {
             const ext = file.name.split(".").pop().toLowerCase();
             const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
@@ -388,9 +550,7 @@ async function uploadTempPhotos(recordId) {
                 .upload(fileName, file);
 
             if (uploadError) {
-                console.error(uploadError);
-                alert("사진 업로드 실패");
-                return;
+                throw new Error(`사진 업로드 실패: ${uploadError.message}`);
             }
 
             const { data: publicUrlData } = supabaseClient.storage
@@ -407,11 +567,17 @@ async function uploadTempPhotos(recordId) {
                 });
 
             if (insertError) {
-                console.error(insertError);
-                alert("사진 정보 저장 실패");
-                return;
+                await supabaseClient.storage
+                    .from("install-photos")
+                    .remove([fileName]);
+                throw new Error(`사진 정보 저장 실패: ${insertError.message}`);
             }
+
+            tempPhotos[photoType] = tempPhotos[photoType]
+                .filter(item => item !== file);
         }
+
+        renderTempPhotos(photoType);
     }
 
     tempPhotos = {
@@ -497,6 +663,12 @@ async function loadRecords() {
         return;
     }
 
+    if (photoError) {
+        console.error(photoError);
+        alert("사진 등록 현황 조회 실패");
+        return;
+    }
+
     const photoCountMap = {};
 
 (photos || []).forEach(photo => {
@@ -527,24 +699,24 @@ function renderRecords(records) {
     }
 
     tbody.innerHTML = records.map(record => {
-        const confluenceClick = record.confluence_page_url
-            ? "openConfluenceById('" + record.id + "')"
-            : "linkConfluenceById('" + record.id + "')";
-
         const confluenceText = record.confluence_page_url
             ? "🟢 열기"
             : "🔴 연결";
+        const confluenceAction = record.confluence_page_url
+            ? "open-confluence"
+            : "link-confluence";
+        const recordId = escapeHtml(record.id);
 
         return `
             <tr>
-                <td>${record.install_date || "-"}</td>
-                <td>${record.customer_name || "-"}</td>
+                <td>${escapeHtml(record.install_date || "-")}</td>
+                <td>${escapeHtml(record.customer_name || "-")}</td>
                 <td>
-                    ${record.product_name || "-"}<br>
-                    <small>BOX: ${record.box_sn || "-"}</small>
+                    ${escapeHtml(record.product_name || "-")}<br>
+                    <small>BOX: ${escapeHtml(record.box_sn || "-")}</small>
                 </td>
                 <td>
-                    ${record.manufacturer || ""} ${record.model_sn || ""}
+                    ${escapeHtml(record.manufacturer || "")} ${escapeHtml(record.model_sn || "")}
                 </td>
                 <td>${record.photoCount || 0} / 8</td>
 
@@ -552,7 +724,8 @@ function renderRecords(records) {
                     <button
                         type="button"
                         class="secondary"
-                        onclick="${confluenceClick}">
+                        data-action="${confluenceAction}"
+                        data-record-id="${recordId}">
                         ${confluenceText}
                     </button>
                 </td>
@@ -561,14 +734,16 @@ function renderRecords(records) {
                     <button
                         class="secondary"
                         type="button"
-                        onclick="viewRecord('${record.id}')">
+                        data-action="view"
+                        data-record-id="${recordId}">
                         보기
                     </button>
 
                     <button
                         class="danger"
                         type="button"
-                        onclick="deleteRecord('${record.id}')">
+                        data-action="delete"
+                        data-record-id="${recordId}">
                         삭제
                     </button>
                 </td>
@@ -576,6 +751,21 @@ function renderRecords(records) {
         `;
     }).join("");
 }
+
+document.getElementById("recordsBody")?.addEventListener("click", event => {
+    const button = event.target.closest("button[data-action][data-record-id]");
+    if (!button) return;
+
+    const id = button.dataset.recordId;
+    const actions = {
+        view: viewRecord,
+        delete: deleteRecord,
+        "open-confluence": openConfluenceById,
+        "link-confluence": linkConfluenceById
+    };
+
+    actions[button.dataset.action]?.(id);
+});
 function applyRecordFilters() {
     const keyword =
         document.getElementById("searchInput")?.value.trim().toLowerCase() || "";
@@ -699,26 +889,26 @@ async function viewRecord(id) {
     content.innerHTML = `
         <div class="view-section">
             <h4>장착정보</h4>
-            <p><b>장착일:</b> ${data.install_date || "-"}</p>
-            <p><b>품명:</b> ${data.product_name || "-"}</p>
-            <p><b>BOX S/N:</b> ${data.box_sn || "-"}</p>
-            <p><b>KEYPAD S/N:</b> ${data.keypad_sn || "-"}</p>
-            <p><b>딜러점:</b> ${data.dealer_name || "-"}</p>
-            <p><b>장착직원:</b> ${data.installer || "-"}</p>
+            <p><b>장착일:</b> ${escapeHtml(data.install_date || "-")}</p>
+            <p><b>품명:</b> ${escapeHtml(data.product_name || "-")}</p>
+            <p><b>BOX S/N:</b> ${escapeHtml(data.box_sn || "-")}</p>
+            <p><b>KEYPAD S/N:</b> ${escapeHtml(data.keypad_sn || "-")}</p>
+            <p><b>딜러점:</b> ${escapeHtml(data.dealer_name || "-")}</p>
+            <p><b>장착직원:</b> ${escapeHtml(data.installer || "-")}</p>
         </div>
 
         <div class="view-section">
             <h4>농기계 / 고객</h4>
-            <p><b>고객명:</b> ${data.customer_name || "-"}</p>
-            <p><b>연락처:</b> ${data.customer_phone || "-"}</p>
-            <p><b>제조사:</b> ${data.manufacturer || "-"}</p>
-            <p><b>모델명/SN:</b> ${data.model_sn || "-"}</p>
-            <p><b>주소:</b> ${data.customer_address || "-"}</p>
+            <p><b>고객명:</b> ${escapeHtml(data.customer_name || "-")}</p>
+            <p><b>연락처:</b> ${escapeHtml(data.customer_phone || "-")}</p>
+            <p><b>제조사:</b> ${escapeHtml(data.manufacturer || "-")}</p>
+            <p><b>모델명/SN:</b> ${escapeHtml(data.model_sn || "-")}</p>
+            <p><b>주소:</b> ${escapeHtml(data.customer_address || "-")}</p>
         </div>
 
         <div class="view-section">
             <h4>비고</h4>
-            <p>${data.memo || "-"}</p>
+            <p>${escapeHtml(data.memo || "-")}</p>
         </div>
     `;
 
@@ -755,6 +945,7 @@ function fillForm(record) {
 
     // PLUS 모델 여부에 따라 농기계 2 표시
     toggleMachineSection();
+    window.refreshMachineModelOptions?.(record);
 
     // 장착직원 버튼 상태 복원
     const selectedInstallers = String(record.installer || "")
@@ -775,6 +966,45 @@ async function deleteRecord(id) {
     console.log("삭제 시도 id:", id);
 
     if (!confirm("정말 삭제하시겠습니까?")) {
+        return;
+    }
+
+    const { data: photos, error: photoLookupError } = await supabaseClient
+        .from("install_photos")
+        .select("photo_path")
+        .eq("record_id", id);
+
+    if (photoLookupError) {
+        console.error(photoLookupError);
+        alert("연결된 사진 확인에 실패했습니다.");
+        return;
+    }
+
+    const photoPaths = (photos || [])
+        .map(photo => photo.photo_path)
+        .filter(Boolean);
+
+    if (photoPaths.length) {
+        const { error: storageError } = await supabaseClient.storage
+            .from("install-photos")
+            .remove(photoPaths);
+
+        if (storageError) {
+            console.error(storageError);
+            alert("사진 파일 삭제에 실패하여 기록 삭제를 중단했습니다.");
+            return;
+        }
+
+    }
+
+    const { error: photoDeleteError } = await supabaseClient
+        .from("install_photos")
+        .delete()
+        .eq("record_id", id);
+
+    if (photoDeleteError) {
+        console.error(photoDeleteError);
+        alert("사진 정보 삭제에 실패하여 기록 삭제를 중단했습니다.");
         return;
     }
 
@@ -872,27 +1102,46 @@ function renderPhotos(photos) {
 
         if (!target) return;
 
-        target.innerHTML += `
+        const photoUrl = isSafeExternalUrl(photo.photo_url)
+            ? photo.photo_url
+            : "";
+        if (!photoUrl) return;
+
+        target.insertAdjacentHTML("beforeend", `
             <div class="photo-card">
 
                 <img
-                    src="${photo.photo_url}"
+                    src="${escapeHtml(photoUrl)}"
                     alt="사진"
-                    onclick="openPhoto('${photo.photo_url}')">
+                    data-action="open-photo"
+                    data-photo-url="${escapeHtml(photoUrl)}">
 
                 <button
                     type="button"
                     class="danger"
-                    onclick="deletePhoto('${photo.id}','${photo.photo_path}')">
+                    data-action="delete-photo"
+                    data-photo-id="${escapeHtml(photo.id)}"
+                    data-photo-path="${escapeHtml(photo.photo_path)}">
                     삭제
                 </button>
 
             </div>
-        `;
+        `);
 
     });
 
 }
+
+document.getElementById("installForm")?.addEventListener("click", event => {
+    const target = event.target.closest("[data-action]");
+    if (!target) return;
+
+    if (target.dataset.action === "open-photo") {
+        openPhoto(target.dataset.photoUrl);
+    } else if (target.dataset.action === "delete-photo") {
+        deletePhoto(target.dataset.photoId, target.dataset.photoPath);
+    }
+});
 function newForm() {
     const form = document.getElementById("installForm");
     if (form) form.reset();
@@ -900,6 +1149,17 @@ function newForm() {
 
     const recordId = document.getElementById("recordId");
     if (recordId) recordId.value = "";
+
+    tempPhotos = {
+        install: [],
+        vehicle: [],
+        machineNumber: [],
+        rearCamera: [],
+        eps: [],
+        cpg: [],
+        acu: [],
+        version: []
+    };
 
     ["installPhotos", "vehiclePhotos", "machineNumberPhotos", "rearCameraPhotos", "epsPhotos", "cpgPhotos", "acuPhotos", "versionPhotos"].forEach(id => {
         const el = document.getElementById(id);
@@ -942,7 +1202,8 @@ async function deletePhoto(photoId, photoPath) {
     await loadPhotos();
 }
 function openPhoto(url) {
-    window.open(url, "_blank");
+    if (!isSafeExternalUrl(url)) return;
+    window.open(url, "_blank", "noopener,noreferrer");
 }
 document
 .getElementById("confluenceBtn")
@@ -1286,10 +1547,16 @@ function setDefaultVersions() {
 }
 
 function saveConfluenceSetting(){
+    const confluenceUrl = document.getElementById("confUrl").value.trim();
+
+    if (!isSafeExternalUrl(confluenceUrl, "atlassian.net")) {
+        alert("Confluence URL은 https://*.atlassian.net 형식이어야 합니다.");
+        return;
+    }
 
     localStorage.setItem(
         "confUrl",
-        document.getElementById("confUrl").value
+        confluenceUrl
     );
 
     localStorage.setItem(
@@ -2111,7 +2378,7 @@ function renderDashboardRanking(
                 <div>
                     <span>
                         <small>${index + 1}</small>
-                        ${label}
+                        ${escapeHtml(label)}
                     </span>
 
                     <strong>${count}</strong>

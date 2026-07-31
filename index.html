@@ -8,6 +8,7 @@
 
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css?v=6" />
 </head>
 
 <body>
@@ -23,6 +24,7 @@
     <button class="tab" data-tab="form">장착등록</button>
     <button class="tab" data-tab="list">장착목록</button>
     <button class="tab" data-tab="setting">설정</button>
+    <button class="tab" data-tab="admin">마스터 관리</button>
   </nav>
 
   <main class="container">
@@ -188,18 +190,22 @@
     </select>
   </label>
 
-  <label>거래처
-    <select name="dealer_name">
+  <label>거래처 유형
+    <select id="dealerTypeSelect" name="dealer_type_id">
       <option value="">선택</option>
-      <option>TYM</option>
-      <option>대동</option>
-      <option>LS</option>
-      <option>국제</option>
-      <option>아세아</option>
-      <option>구보다</option>
-      <option>얀마</option>
-      <option>기타</option>
     </select>
+  </label>
+
+  <label>거래처명
+    <input
+      id="dealerNameInput"
+      name="dealer_name"
+      list="dealerNameOptions"
+      placeholder="거래처 선택 또는 직접 입력"
+      autocomplete="off"
+    />
+    <datalist id="dealerNameOptions"></datalist>
+    <input type="hidden" id="dealerId" name="dealer_id" />
   </label>
 
   <label>대표자
@@ -270,22 +276,15 @@
     </label>
 
     <label>제조사
-      <select name="manufacturer">
+      <select id="manufacturerSelect" name="manufacturer">
         <option value="">선택</option>
-        <option value="TYM">TYM</option>
-        <option value="대동">대동</option>
-        <option value="LS">LS</option>
-        <option value="국제">국제</option>
-        <option value="아세아">아세아</option>
-        <option value="구보다">구보다</option>
-        <option value="얀마">얀마</option>
-        <option value="펜트">펜트</option>
-        <option value="기타">기타</option>
       </select>
     </label>
 
     <label>모델명
-      <input name="model_sn" />
+      <select id="modelSelect" name="model_sn">
+        <option value="">제조사를 먼저 선택</option>
+      </select>
     </label>
 
     <label>마력(HP)
@@ -324,22 +323,15 @@
     </label>
 
     <label>제조사
-      <select name="manufacturer_2">
+      <select id="manufacturerSelect2" name="manufacturer_2">
         <option value="">선택</option>
-        <option value="TYM">TYM</option>
-        <option value="대동">대동</option>
-        <option value="LS">LS</option>
-        <option value="국제">국제</option>
-        <option value="아세아">아세아</option>
-        <option value="구보다">구보다</option>
-        <option value="얀마">얀마</option>
-        <option value="펜트">펜트</option>
-        <option value="기타">기타</option>
       </select>
     </label>
 
     <label>모델명
-      <input name="model_sn_2" />
+      <select id="modelSelect2" name="model_sn_2">
+        <option value="">제조사를 먼저 선택</option>
+      </select>
     </label>
 
     <label>마력(HP)
@@ -768,6 +760,58 @@
         </div>
       </div>
     </section>
+    <section id="adminTab" class="page hidden">
+      <div class="card admin-master-card">
+        <div class="admin-master-header">
+          <div>
+            <h2>마스터 관리</h2>
+            <p>장착직원, 거래처, 제조사 및 모델의 노출 여부와 표시 순서를 관리합니다.</p>
+          </div>
+          <button type="button" id="adminMasterRefresh" class="secondary">새로고침</button>
+        </div>
+
+        <div class="admin-master-tabs" role="tablist" aria-label="마스터 종류">
+          <button type="button" class="admin-master-tab active" data-master="installers">장착직원</button>
+          <button type="button" class="admin-master-tab" data-master="dealerTypes">거래처 유형</button>
+          <button type="button" class="admin-master-tab" data-master="dealers">거래처명</button>
+          <button type="button" class="admin-master-tab" data-master="manufacturers">제조사</button>
+          <button type="button" class="admin-master-tab" data-master="models">모델</button>
+        </div>
+
+        <form id="adminMasterForm" class="admin-master-form">
+          <input type="hidden" id="adminMasterId" />
+          <label id="adminMasterParentField" class="hidden">
+            <span id="adminMasterParentLabel">소속</span>
+            <select id="adminMasterParent"></select>
+          </label>
+          <label>
+            <span id="adminMasterNameLabel">장착직원명</span>
+            <input id="adminMasterName" maxlength="100" required autocomplete="off" />
+          </label>
+          <div class="admin-master-form-actions">
+            <button type="submit" id="adminMasterSubmit" class="primary">추가</button>
+            <button type="button" id="adminMasterCancel" class="secondary hidden">취소</button>
+          </div>
+        </form>
+
+        <div id="adminMasterMessage" class="admin-master-message" role="status" aria-live="polite"></div>
+        <div class="table-wrap">
+          <table class="admin-master-table">
+            <thead>
+              <tr>
+                <th>순서</th>
+                <th>이름</th>
+                <th>상태</th>
+                <th>관리</th>
+              </tr>
+            </thead>
+            <tbody id="adminMasterBody">
+              <tr><td colspan="4" class="empty">마스터를 불러오는 중입니다.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
     <section id="settingTab" class="page hidden">
 
 <div class="card">
@@ -801,6 +845,49 @@ class="primary">
 저장
 </button>
 
+</div>
+
+<div class="card admin-auth-card">
+  <h2>관리자</h2>
+  <p>마스터 관리 기능을 사용하려면 로그인하세요.</p>
+
+  <form id="adminLoginForm" class="admin-login-form">
+    <label>
+      관리자 이메일
+      <input
+        id="adminLoginEmail"
+        type="email"
+        autocomplete="username"
+        required
+      />
+    </label>
+    <label>
+      비밀번호
+      <input
+        id="adminLoginPassword"
+        type="password"
+        autocomplete="current-password"
+        required
+      />
+    </label>
+    <button type="submit" id="adminLoginButton" class="primary">
+      관리자 로그인
+    </button>
+  </form>
+
+  <div id="adminSessionPanel" class="hidden">
+    <p>관리자: <strong id="adminSessionName"></strong></p>
+    <button type="button" id="adminLogoutButton" class="secondary">
+      로그아웃
+    </button>
+  </div>
+
+  <div
+    id="adminAuthMessage"
+    class="admin-master-message"
+    role="status"
+    aria-live="polite"
+  ></div>
 </div>
 
 </section>
@@ -840,6 +927,42 @@ class="primary">
         id="cancelMoveBtn"
       >
         취소
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- 사진 누락 확인 모달 -->
+<div id="missingPhotoModal" class="modal hidden">
+  <div class="modal-box save-confirm-box">
+
+    <h3>사진 등록 확인</h3>
+
+    <p class="save-confirm-message">
+      다음 사진이 등록되지 않았습니다.
+    </p>
+
+    <div
+      id="missingPhotoList"
+      class="missing-photo-list"
+    ></div>
+
+    <div class="modal-actions">
+      <button
+        type="button"
+        id="returnToPhotoBtn"
+        class="secondary"
+      >
+        사진 등록
+      </button>
+
+      <button
+        type="button"
+        id="saveWithoutPhotoBtn"
+        class="primary"
+      >
+        그대로 저장
       </button>
     </div>
 
@@ -898,6 +1021,7 @@ class="primary">
   <script src="supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="./script.js"></script>
+  <script src="./admin.js?v=6"></script>
 </body>
 
 </html>
