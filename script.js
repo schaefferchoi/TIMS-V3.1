@@ -5,37 +5,12 @@ let formChanged = false;
 let pendingTabName = null;
 let monthlyInstallChartInstance = null;
 
-function escapeHtml(value) {
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-}
-
-function isSafeExternalUrl(value, allowedHostSuffix = null) {
-    try {
-        const url = new URL(String(value || ""));
-        if (url.protocol !== "https:") return false;
-        if (!allowedHostSuffix) return true;
-        return url.hostname === allowedHostSuffix ||
-            url.hostname.endsWith(`.${allowedHostSuffix}`);
-    } catch {
-        return false;
-    }
-}
-
 document.addEventListener("DOMContentLoaded", () => {
 
     const tabs = document.querySelectorAll(".tab");
     const pages = document.querySelectorAll(".page");
 
     function showTab(tabName){
-        if (tabName === "admin" && !window.isMasterAdmin) {
-            tabName = "setting";
-            window.showAdminLoginRequired?.();
-        }
 
         pages.forEach(page=>{
             page.classList.add("hidden");
@@ -96,6 +71,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
     showTab("dashboard");
+    loadInstallers();
+    loadDealers();
+    loadManufacturers();
 
 const installForm = document.getElementById("installForm");
 
@@ -188,6 +166,10 @@ function collectFormData() {
     }
 
     const formData = new FormData(form);
+    console.log("dealer_type_id =", formData.get("dealer_type_id"));
+    console.log("dealer_id      =", formData.get("dealer_id"));
+
+    console.log("FORM DATA:", [...formData.entries()]);
     const recordId =
         document.getElementById("recordId")?.value.trim() || "";
 
@@ -209,7 +191,10 @@ function collectFormData() {
 
         return Number.isNaN(number) ? null : number;
     };
-
+    console.log("record 생성 직전:", {
+        dealer_type_id: formData.get("dealer_type_id"),
+        dealer_id: formData.get("dealer_id")
+});
     return {
         id: recordId || undefined,
 
@@ -230,18 +215,24 @@ function collectFormData() {
         sales_type:
             formData.get("sales_type") || null,
 
+        dealer_name:
+            document.getElementById("dealerName")
+                ?.selectedOptions[0]
+                ?.textContent
+                ?.trim() || null,
+
         dealer_type_id:
-            toNullableInteger(formData.get("dealer_type_id")),
+            formData.get("dealer_type_id")
+                ? Number(formData.get("dealer_type_id"))
+                : null,
 
         dealer_id:
-            toNullableInteger(formData.get("dealer_id")),
+            formData.get("dealer_id")
+                ? Number(formData.get("dealer_id"))
+                : null,
 
-        dealer_name:
-            formData.get("dealer_name") || null,
-
-        representative:
-            formData.get("representative") || null,
-
+representative:
+    formData.get("representative") || null,
         // 3. 제품 정보
         product_name:
             productName || null,
@@ -359,134 +350,11 @@ function collectFormData() {
     };
 }
 
-async function getMissingPhotoLabels(record) {
-    const missing = [];
-    const savedPhotoTypes = new Set();
-
-    if (record.id) {
-        const { data, error } = await supabaseClient
-            .from("install_photos")
-            .select("photo_type")
-            .eq("record_id", record.id);
-
-        if (error) {
-            throw new Error(`기존 사진 확인 실패: ${error.message}`);
-        }
-
-        (data || []).forEach(photo => savedPhotoTypes.add(photo.photo_type));
-    }
-
-    const photoRequirements = [
-        ["install", "전체 사진"],
-        ["vehicle", "차량 사진"],
-        ["machineNumber", "기대번호 사진"],
-        ["eps", "EPS 사진"],
-        ["cpg", "CPG 사진"],
-        ["acu", "ACU 사진"],
-        ["version", "버전 사진"]
-    ];
-
-    photoRequirements.forEach(([type, label]) => {
-        const photos = tempPhotos[type] || [];
-
-        if (photos.length === 0 && !savedPhotoTypes.has(type)) {
-            missing.push(label);
-        }
-    });
-
-    const rearCameraInstalled =
-        String(record.rear_camera || "").trim() &&
-        String(record.rear_camera || "").trim() !== "미장착";
-
-    if (rearCameraInstalled) {
-        const rearCameraPhotos = tempPhotos.rearCamera || [];
-
-        if (
-            rearCameraPhotos.length === 0 &&
-            !savedPhotoTypes.has("rearCamera")
-        ) {
-            missing.push("후방카메라 사진");
-        }
-    }
-
-    return missing;
-}
-
-function showMissingPhotoModal(missingPhotoLabels) {
-    return new Promise(resolve => {
-        const modal =
-            document.getElementById("missingPhotoModal");
-
-        const list =
-            document.getElementById("missingPhotoList");
-
-        const returnButton =
-            document.getElementById("returnToPhotoBtn");
-
-        const saveButton =
-            document.getElementById("saveWithoutPhotoBtn");
-
-        if (!modal || !list || !returnButton || !saveButton) {
-    console.error("사진 모달 요소를 찾지 못했습니다.", {
-        modal,
-        list,
-        returnButton,
-        saveButton
-    });
-
-    resolve(false);
-    return;
-}
-
-        list.innerHTML = missingPhotoLabels
-            .map(label => `<div>${label}</div>`)
-            .join("");
-
-        modal.classList.remove("hidden");
-
-        const closeModal = result => {
-            modal.classList.add("hidden");
-
-            returnButton.onclick = null;
-            saveButton.onclick = null;
-
-            resolve(result);
-        };
-
-        returnButton.onclick = () => {
-            closeModal(false);
-        };
-
-        saveButton.onclick = () => {
-            closeModal(true);
-        };
-    });
-}
-
 async function saveRecord(record) {
-    let missingPhotoLabels;
-
-    try {
-        missingPhotoLabels = await getMissingPhotoLabels(record);
-    } catch (error) {
-        console.error(error);
-        alert("사진 등록 상태를 확인하지 못했습니다.");
-        return false;
-    }
-
-    if (missingPhotoLabels.length > 0) {
-    const shouldContinue =
-        await showMissingPhotoModal(missingPhotoLabels);
-
-    if (!shouldContinue) {
-        return false;
-    }
-}
-
     let result;
 
 if (record.id) {
-
+    console.log("UPDATE DATA:", record);
     result = await supabaseClient
         .from("install_records")
         .update(record)
@@ -497,8 +365,8 @@ if (record.id) {
 } else {
 
     const { id, ...insertRecord } = record;
-
-   result = await supabaseClient
+    console.log("INSERT DATA:", insertRecord);
+    result = await supabaseClient
      .from("install_records")
      .insert([insertRecord])
      .select()
@@ -521,13 +389,7 @@ if (savedRecord && savedRecord.id) {
     document.getElementById("recordId").value = savedRecord.id;
 }
 
-try {
-    await uploadTempPhotos(savedRecord.id);
-} catch (error) {
-    console.error(error);
-    alert("기본 정보는 저장되었지만 일부 사진 저장에 실패했습니다. 다시 시도해 주세요.");
-    return false;
-}
+await uploadTempPhotos(savedRecord.id);
 
 formChanged = false;
 
@@ -539,19 +401,29 @@ async function uploadTempPhotos(recordId) {
     if (!recordId) return;
 
     for (const photoType in tempPhotos) {
-        const pendingFiles = [...tempPhotos[photoType]];
-
-        for (const file of pendingFiles) {
+        for (const file of tempPhotos[photoType]) {
             const ext = file.name.split(".").pop().toLowerCase();
             const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
-            const { error: uploadError } = await supabaseClient.storage
-                .from("install-photos")
-                .upload(fileName, file);
+            console.log("UPLOAD FILE:", fileName);
+            console.log("BUCKET:", "install-photos");
+
+            const {
+                 data: uploadData,
+                 error: uploadError
+                    } =
+            await supabaseClient.storage
+             .from("install-photos")
+             .upload(fileName, file);
+
+                console.log("UPLOAD DATA:", uploadData);
+                console.log("UPLOAD ERROR:", uploadError);
 
             if (uploadError) {
-                throw new Error(`사진 업로드 실패: ${uploadError.message}`);
-            }
+                console.error(uploadError);
+                alert(uploadError.message);
+                return;
+}
 
             const { data: publicUrlData } = supabaseClient.storage
                 .from("install-photos")
@@ -567,17 +439,11 @@ async function uploadTempPhotos(recordId) {
                 });
 
             if (insertError) {
-                await supabaseClient.storage
-                    .from("install-photos")
-                    .remove([fileName]);
-                throw new Error(`사진 정보 저장 실패: ${insertError.message}`);
+                console.error(insertError);
+                alert("사진 정보 저장 실패");
+                return;
             }
-
-            tempPhotos[photoType] = tempPhotos[photoType]
-                .filter(item => item !== file);
         }
-
-        renderTempPhotos(photoType);
     }
 
     tempPhotos = {
@@ -649,39 +515,63 @@ let allRecords = [];
 
 async function loadRecords() {
     const { data, error } = await supabaseClient
-        .from("install_records")
-        .select("*")
-        .order("created_at", { ascending: false });
-    
-    const { data: photos, error: photoError } = await supabaseClient
-        .from("install_photos")
-        .select("record_id");
-    
+    .from("install_records")
+    .select(`
+        *,
+        dealer:master_dealers (
+            dealer_name,
+            dealer_type_id
+        )
+    `)
+    .order("created_at", { ascending: false });
+
     if (error) {
         console.error(error);
         alert("목록 조회 실패");
         return;
     }
 
+    const { data: photos, error: photoError } = await supabaseClient
+        .from("install_photos")
+        .select("record_id, photo_type");
+
     if (photoError) {
         console.error(photoError);
-        alert("사진 등록 현황 조회 실패");
-        return;
     }
 
-    const photoCountMap = {};
+    const photoTypeMap = {};
+    const photoSetMap = {};
 
-(photos || []).forEach(photo => {
-    photoCountMap[photo.record_id] =
-        (photoCountMap[photo.record_id] || 0) + 1;
-});
+    (photos || []).forEach(photo => {
+        if (!photo.record_id || !photo.photo_type) return;
+
+        if (!photoTypeMap[photo.record_id]) {
+            photoTypeMap[photo.record_id] = new Set();
+        }
+
+        photoTypeMap[photo.record_id].add(photo.photo_type);
+
+        photoSetMap[photo.record_id] =
+            Array.from(photoTypeMap[photo.record_id]);
+    });
 
     console.log("현재 목록", data);
-    
+
     allRecords = (data || []).map(record => ({
     ...record,
-    photoCount: photoCountMap[record.id] || 0
+
+    dealer_name:
+        record.dealer?.dealer_name ||
+        record.dealer_name ||
+        "",
+
+    photoCount:
+        photoTypeMap[record.id]?.size || 0,
+
+    photoTypes:
+        photoSetMap[record.id] || []
 }));
+
     applyRecordFilters();
 }
 function renderRecords(records) {
@@ -699,33 +589,76 @@ function renderRecords(records) {
     }
 
     tbody.innerHTML = records.map(record => {
+        const confluenceClick = record.confluence_page_url
+            ? "openConfluenceById('" + record.id + "')"
+            : "linkConfluenceById('" + record.id + "')";
+
         const confluenceText = record.confluence_page_url
             ? "🟢 열기"
             : "🔴 연결";
-        const confluenceAction = record.confluence_page_url
-            ? "open-confluence"
-            : "link-confluence";
-        const recordId = escapeHtml(record.id);
 
+        const photoCount = Number(record.photoCount) || 0;
+
+        // 진행률은 최대 100%로 제한
+        const photoPercent = Math.min(
+            100,
+        Math.round((photoCount / 8) * 100)
+        );
+
+        const filledBars = Math.min(
+            10,
+            Math.max(0, Math.round(photoPercent / 10))
+        );
+
+const photoBar =
+    "█".repeat(filledBars) +
+    "░".repeat(10 - filledBars);
+
+     const requiredPhotos = [
+    "install",
+    "vehicle",
+    "machineNumber",
+    "rearCamera",
+    "eps",
+    "cpg",
+    "acu",
+    "version"
+];
+
+const missingPhotos = requiredPhotos.filter(
+    type => !record.photoTypes.includes(type)
+);
         return `
             <tr>
-                <td>${escapeHtml(record.install_date || "-")}</td>
-                <td>${escapeHtml(record.customer_name || "-")}</td>
+                <td>${record.install_date || "-"}</td>
+                <td>${record.customer_name || "-"}</td>
                 <td>
-                    ${escapeHtml(record.product_name || "-")}<br>
-                    <small>BOX: ${escapeHtml(record.box_sn || "-")}</small>
+                    ${record.product_name || "-"}<br>
+                    <small>BOX: ${record.box_sn || "-"}</small>
                 </td>
                 <td>
-                    ${escapeHtml(record.manufacturer || "")} ${escapeHtml(record.model_sn || "")}
+                    ${record.manufacturer || ""} ${record.model_sn || ""}
                 </td>
-                <td>${record.photoCount || 0} / 8</td>
+                <td>
+                 <div class="photo-progress">
+                    <div>${photoBar}</div>
+                    <small>${photoCount}/8 (${photoPercent}%)</small>
 
+                    ${missingPhotos.length
+                       ? `<div class="photo-warning">
+                        ⚠ ${missingPhotos.length}개 누락
+                    </div>`
+                    : `<div class="photo-ok">
+                    ✓ 완료
+                    </div>`
+}
+                 </div>
+                </td>
                 <td>
                     <button
                         type="button"
                         class="secondary"
-                        data-action="${confluenceAction}"
-                        data-record-id="${recordId}">
+                        onclick="${confluenceClick}">
                         ${confluenceText}
                     </button>
                 </td>
@@ -734,38 +667,214 @@ function renderRecords(records) {
                     <button
                         class="secondary"
                         type="button"
-                        data-action="view"
-                        data-record-id="${recordId}">
+                        onclick="viewRecord('${record.id}')">
                         보기
                     </button>
 
                     <button
                         class="danger"
                         type="button"
-                        data-action="delete"
-                        data-record-id="${recordId}">
+                        onclick="deleteRecord('${record.id}')">
                         삭제
                     </button>
                 </td>
             </tr>
         `;
     }).join("");
+
 }
 
-document.getElementById("recordsBody")?.addEventListener("click", event => {
-    const button = event.target.closest("button[data-action][data-record-id]");
-    if (!button) return;
+function exportRecordsToExcel() {
+    if (!allRecords.length) {
+        alert("내보낼 장착 데이터가 없습니다.");
+        return;
+    }
 
-    const id = button.dataset.recordId;
-    const actions = {
-        view: viewRecord,
-        delete: deleteRecord,
-        "open-confluence": openConfluenceById,
-        "link-confluence": linkConfluenceById
-    };
+    const headers = [
+        "장착일",
+        "고객명",
+        "제품명",
+        "BOX S/N",
+        "제조사",
+        "모델명",
+        "사진",
+        "Confluence"
+    ];
 
-    actions[button.dataset.action]?.(id);
-});
+    const rows = allRecords.map(record => [
+        record.install_date || "",
+        record.customer_name || "",
+        record.product_name || "",
+        record.box_sn || "",
+        record.manufacturer || "",
+        record.model_sn || "",
+        `${record.photoCount || 0}/8`,
+        record.confluence_page_url
+            ? "동기화 완료"
+            : "미동기화"
+    ]);
+
+    const csvRows = [
+        headers,
+        ...rows
+    ].map(row =>
+        row.map(value => {
+            const text = String(value ?? "").replace(/"/g, '""');
+            return `"${text}"`;
+        }).join(",")
+    );
+
+    const csvContent = "\uFEFF" + csvRows.join("\n");
+
+    const blob = new Blob(
+        [csvContent],
+        { type: "text/csv;charset=utf-8;" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download =
+        `TYMICT_장착목록_${new Date()
+            .toISOString()
+            .slice(0, 10)}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    URL.revokeObjectURL(url);
+}
+
+function exportRecordsToPdf() {
+    if (!allRecords.length) {
+        alert("내보낼 장착 데이터가 없습니다.");
+        return;
+    }
+
+    const rows = allRecords.map(record => `
+        <tr>
+            <td>${escapeHtml(record.install_date || "-")}</td>
+            <td>${escapeHtml(record.customer_name || "-")}</td>
+            <td>${escapeHtml(record.product_name || "-")}</td>
+            <td>${escapeHtml(record.box_sn || "-")}</td>
+            <td>
+                ${escapeHtml(record.manufacturer || "")}
+                ${escapeHtml(record.model_sn || "")}
+            </td>
+            <td>${record.photoCount || 0}/8</td>
+            <td>
+                ${record.confluence_page_url
+                    ? "동기화 완료"
+                    : "미동기화"}
+            </td>
+        </tr>
+    `).join("");
+
+    const printWindow = window.open("", "_blank");
+
+    if (!printWindow) {
+        alert("팝업이 차단되었습니다. 팝업을 허용해 주세요.");
+        return;
+    }
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html lang="ko">
+        <head>
+            <meta charset="UTF-8">
+            <title>TYMICT 장착목록</title>
+
+            <style>
+                body {
+                    font-family: Arial, "Noto Sans KR", sans-serif;
+                    padding: 24px;
+                    color: #222;
+                }
+
+                h1 {
+                    margin: 0 0 8px;
+                    font-size: 22px;
+                }
+
+                .print-date {
+                    margin-bottom: 20px;
+                    color: #666;
+                    font-size: 12px;
+                }
+
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 11px;
+                }
+
+                th,
+                td {
+                    border: 1px solid #aaa;
+                    padding: 7px;
+                    text-align: left;
+                    vertical-align: top;
+                }
+
+                th {
+                    background: #eef3f8;
+                }
+
+                @page {
+                    size: A4 landscape;
+                    margin: 12mm;
+                }
+            </style>
+        </head>
+
+        <body>
+            <h1>TYMICT 장착목록</h1>
+
+            <div class="print-date">
+                출력일: ${new Date().toLocaleDateString("ko-KR")}
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>장착일</th>
+                        <th>고객명</th>
+                        <th>제품명</th>
+                        <th>BOX S/N</th>
+                        <th>농기계</th>
+                        <th>사진</th>
+                        <th>Confluence</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+
+            <script>
+                window.onload = function () {
+                    window.print();
+                };
+            <\/script>
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 function applyRecordFilters() {
     const keyword =
         document.getElementById("searchInput")?.value.trim().toLowerCase() || "";
@@ -889,26 +998,26 @@ async function viewRecord(id) {
     content.innerHTML = `
         <div class="view-section">
             <h4>장착정보</h4>
-            <p><b>장착일:</b> ${escapeHtml(data.install_date || "-")}</p>
-            <p><b>품명:</b> ${escapeHtml(data.product_name || "-")}</p>
-            <p><b>BOX S/N:</b> ${escapeHtml(data.box_sn || "-")}</p>
-            <p><b>KEYPAD S/N:</b> ${escapeHtml(data.keypad_sn || "-")}</p>
-            <p><b>딜러점:</b> ${escapeHtml(data.dealer_name || "-")}</p>
-            <p><b>장착직원:</b> ${escapeHtml(data.installer || "-")}</p>
+            <p><b>장착일:</b> ${data.install_date || "-"}</p>
+            <p><b>품명:</b> ${data.product_name || "-"}</p>
+            <p><b>BOX S/N:</b> ${data.box_sn || "-"}</p>
+            <p><b>KEYPAD S/N:</b> ${data.keypad_sn || "-"}</p>
+            <p><b>딜러점:</b> ${data.dealer_name || "-"}</p>
+            <p><b>장착직원:</b> ${data.installer || "-"}</p>
         </div>
 
         <div class="view-section">
             <h4>농기계 / 고객</h4>
-            <p><b>고객명:</b> ${escapeHtml(data.customer_name || "-")}</p>
-            <p><b>연락처:</b> ${escapeHtml(data.customer_phone || "-")}</p>
-            <p><b>제조사:</b> ${escapeHtml(data.manufacturer || "-")}</p>
-            <p><b>모델명/SN:</b> ${escapeHtml(data.model_sn || "-")}</p>
-            <p><b>주소:</b> ${escapeHtml(data.customer_address || "-")}</p>
+            <p><b>고객명:</b> ${data.customer_name || "-"}</p>
+            <p><b>연락처:</b> ${data.customer_phone || "-"}</p>
+            <p><b>제조사:</b> ${data.manufacturer || "-"}</p>
+            <p><b>모델명/SN:</b> ${data.model_sn || "-"}</p>
+            <p><b>주소:</b> ${data.customer_address || "-"}</p>
         </div>
 
         <div class="view-section">
             <h4>비고</h4>
-            <p>${escapeHtml(data.memo || "-")}</p>
+            <p>${data.memo || "-"}</p>
         </div>
     `;
 
@@ -945,7 +1054,6 @@ function fillForm(record) {
 
     // PLUS 모델 여부에 따라 농기계 2 표시
     toggleMachineSection();
-    window.refreshMachineModelOptions?.(record);
 
     // 장착직원 버튼 상태 복원
     const selectedInstallers = String(record.installer || "")
@@ -969,45 +1077,6 @@ async function deleteRecord(id) {
         return;
     }
 
-    const { data: photos, error: photoLookupError } = await supabaseClient
-        .from("install_photos")
-        .select("photo_path")
-        .eq("record_id", id);
-
-    if (photoLookupError) {
-        console.error(photoLookupError);
-        alert("연결된 사진 확인에 실패했습니다.");
-        return;
-    }
-
-    const photoPaths = (photos || [])
-        .map(photo => photo.photo_path)
-        .filter(Boolean);
-
-    if (photoPaths.length) {
-        const { error: storageError } = await supabaseClient.storage
-            .from("install-photos")
-            .remove(photoPaths);
-
-        if (storageError) {
-            console.error(storageError);
-            alert("사진 파일 삭제에 실패하여 기록 삭제를 중단했습니다.");
-            return;
-        }
-
-    }
-
-    const { error: photoDeleteError } = await supabaseClient
-        .from("install_photos")
-        .delete()
-        .eq("record_id", id);
-
-    if (photoDeleteError) {
-        console.error(photoDeleteError);
-        alert("사진 정보 삭제에 실패하여 기록 삭제를 중단했습니다.");
-        return;
-    }
-
     const { error } = await supabaseClient
         .from("install_records")
         .delete()
@@ -1020,7 +1089,7 @@ async function deleteRecord(id) {
     }
 
     alert("삭제 완료");
-    
+
     await loadRecords();
 }
 
@@ -1102,46 +1171,27 @@ function renderPhotos(photos) {
 
         if (!target) return;
 
-        const photoUrl = isSafeExternalUrl(photo.photo_url)
-            ? photo.photo_url
-            : "";
-        if (!photoUrl) return;
-
-        target.insertAdjacentHTML("beforeend", `
+        target.innerHTML += `
             <div class="photo-card">
 
                 <img
-                    src="${escapeHtml(photoUrl)}"
+                    src="${photo.photo_url}"
                     alt="사진"
-                    data-action="open-photo"
-                    data-photo-url="${escapeHtml(photoUrl)}">
+                    onclick="openPhoto('${photo.photo_url}')">
 
                 <button
                     type="button"
                     class="danger"
-                    data-action="delete-photo"
-                    data-photo-id="${escapeHtml(photo.id)}"
-                    data-photo-path="${escapeHtml(photo.photo_path)}">
+                    onclick="deletePhoto('${photo.id}','${photo.photo_path}')">
                     삭제
                 </button>
 
             </div>
-        `);
+        `;
 
     });
 
 }
-
-document.getElementById("installForm")?.addEventListener("click", event => {
-    const target = event.target.closest("[data-action]");
-    if (!target) return;
-
-    if (target.dataset.action === "open-photo") {
-        openPhoto(target.dataset.photoUrl);
-    } else if (target.dataset.action === "delete-photo") {
-        deletePhoto(target.dataset.photoId, target.dataset.photoPath);
-    }
-});
 function newForm() {
     const form = document.getElementById("installForm");
     if (form) form.reset();
@@ -1149,17 +1199,6 @@ function newForm() {
 
     const recordId = document.getElementById("recordId");
     if (recordId) recordId.value = "";
-
-    tempPhotos = {
-        install: [],
-        vehicle: [],
-        machineNumber: [],
-        rearCamera: [],
-        eps: [],
-        cpg: [],
-        acu: [],
-        version: []
-    };
 
     ["installPhotos", "vehiclePhotos", "machineNumberPhotos", "rearCameraPhotos", "epsPhotos", "cpgPhotos", "acuPhotos", "versionPhotos"].forEach(id => {
         const el = document.getElementById(id);
@@ -1202,8 +1241,7 @@ async function deletePhoto(photoId, photoPath) {
     await loadPhotos();
 }
 function openPhoto(url) {
-    if (!isSafeExternalUrl(url)) return;
-    window.open(url, "_blank", "noopener,noreferrer");
+    window.open(url, "_blank");
 }
 document
 .getElementById("confluenceBtn")
@@ -1226,6 +1264,9 @@ async function generateConfluence() {
         alert("먼저 저장 후 Confluence 동기화를 진행하세요.");
         return;
     }
+
+    // 기존 기록에서 새로 선택한 사진을 먼저 저장
+    await uploadTempPhotos(recordId);
 
     const url = localStorage.getItem("confUrl");
     const email = localStorage.getItem("confEmail");
@@ -1250,6 +1291,10 @@ async function generateConfluence() {
         .eq("record_id", recordId)
         .order("created_at", { ascending: true });
 
+        console.log("CONFLUENCE RECORD ID:", recordId);
+        console.log("CONFLUENCE PHOTOS:", photos);
+        console.log("CONFLUENCE PHOTO ERROR:", photoError);
+
     if (photoError) {
         console.error(photoError);
         alert("사진 조회 실패");
@@ -1264,9 +1309,13 @@ async function generateConfluence() {
         ? record.id.substring(0, 8)
         : Date.now();
 
-   const pageTitle =
+    const pageTitle =
     `[${dateCode}] ${record.dealer_region || record.dealer_name || ""} ${record.manufacturer || ""}${record.model_sn || ""}_${record.box_sn || ""}`;
-
+        console.log("SMOOTH-ACTION 전송 사진:", photos);
+        console.log(
+            "사진 타입:",
+    (photos || []).map(photo => photo.photo_type)
+);
     const response = await fetch(
         "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
         {
@@ -1290,10 +1339,15 @@ async function generateConfluence() {
     const result = await response.json();
 
     if (!response.ok) {
-        console.error(result);
-        alert("Confluence 동기화 실패");
-        return;
-    }
+    console.error("Confluence 동기화 오류:", result);
+
+    alert(
+        "Confluence 동기화 실패\n\n" +
+        (result.error || JSON.stringify(result))
+    );
+
+    return;
+}
 
   const { data: updateData, error: updateError } = await supabaseClient
     .from("install_records")
@@ -1526,7 +1580,7 @@ if (value) {
     input.value = value;
 }
 });
-    
+
     hideImportModal();
 
     alert("Confluence 페이지를 성공적으로 가져왔습니다.");
@@ -1547,16 +1601,10 @@ function setDefaultVersions() {
 }
 
 function saveConfluenceSetting(){
-    const confluenceUrl = document.getElementById("confUrl").value.trim();
-
-    if (!isSafeExternalUrl(confluenceUrl, "atlassian.net")) {
-        alert("Confluence URL은 https://*.atlassian.net 형식이어야 합니다.");
-        return;
-    }
 
     localStorage.setItem(
         "confUrl",
-        confluenceUrl
+        document.getElementById("confUrl").value
     );
 
     localStorage.setItem(
@@ -1617,7 +1665,7 @@ document.getElementById("searchInput")
 document.querySelectorAll(".filter-chip").forEach(button => {
     button.addEventListener("click", () => {
 
-        console.log(button.dataset.filter); 
+        console.log(button.dataset.filter);
 
         document.querySelectorAll(".filter-chip").forEach(btn => {
             btn.classList.remove("active");
@@ -1627,7 +1675,7 @@ document.querySelectorAll(".filter-chip").forEach(button => {
         applyRecordFilters();
 
     });
-});    
+});
 document.getElementById("closeViewModal")
     ?.addEventListener("click", () => {
         document.getElementById("viewModal")?.classList.add("hidden");
@@ -1701,7 +1749,7 @@ document
 
 document
     .getElementById("confirmImportConfluence")
-    .addEventListener("click", importConfluence);    
+    .addEventListener("click", importConfluence);
 function findValue(doc, label) {
 
     const strongs = doc.querySelectorAll("strong");
@@ -1841,26 +1889,65 @@ function parseConfluencePhotos(html) {
 
     return result;
 }
-const installerButtons =
-    document.querySelectorAll("#installerButtons button");
+async function loadInstallers() {
+    const container =
+        document.getElementById("installerButtons");
 
-installerButtons.forEach(button=>{
+    if (!container) return;
 
-    button.addEventListener("click",()=>{
+    const { data, error } = await supabaseClient
+        .from("master_installers")
+        .select("id, name")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
 
-        button.classList.toggle("active");
+        console.log("직원 조회 결과:", data);
+        console.log("직원 조회 오류:", error);
 
-        const selected =
-            [...installerButtons]
-            .filter(btn=>btn.classList.contains("active"))
-            .map(btn=>btn.dataset.name);
+    if (error) {
+        console.error("장착직원 조회 실패:", error);
+        container.innerHTML =
+            `<span class="empty">직원 목록 조회 실패</span>`;
+        return;
+    }
 
-        document.getElementById("installer").value =
-            selected.join(", ");
+    container.innerHTML = (data || [])
+        .map(installer => `
+            <button
+                type="button"
+                data-id="${installer.id}"
+                data-name="${escapeHtml(installer.name)}">
+                ${escapeHtml(installer.name)}
+            </button>
+        `)
+        .join("");
 
+    bindInstallerButtons();
+}
+
+function bindInstallerButtons() {
+    const buttons =
+        document.querySelectorAll("#installerButtons button");
+
+    buttons.forEach(button => {
+        button.addEventListener("click", () => {
+            button.classList.toggle("active");
+
+            const selected =
+                [...document.querySelectorAll(
+                    "#installerButtons button.active"
+                )]
+                .map(btn => btn.dataset.name);
+
+            const installerInput =
+                document.getElementById("installer");
+
+            if (installerInput) {
+                installerInput.value = selected.join(", ");
+            }
+        });
     });
-
-});
+}
 async function importConfluencePhotos({
     attachments,
     photoMap,
@@ -2378,7 +2465,7 @@ function renderDashboardRanking(
                 <div>
                     <span>
                         <small>${index + 1}</small>
-                        ${escapeHtml(label)}
+                        ${label}
                     </span>
 
                     <strong>${count}</strong>
@@ -2387,3 +2474,326 @@ function renderDashboardRanking(
             .join("")
         : `<p class="empty">${emptyMessage}</p>`;
 }
+document
+    .getElementById("exportExcelBtn")
+    ?.addEventListener("click", exportRecordsToExcel);
+
+document
+    .getElementById("exportPdfBtn")
+    ?.addEventListener("click", exportRecordsToPdf);
+async function loadDealers() {
+
+    const select =
+        document.getElementById("dealerType");
+
+    if (!select) return;
+
+    const { data, error } =
+        await supabaseClient
+            .from("master_dealer_types")
+            .select("id,name")
+            .eq("active", true)
+            .order("sort_order");
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    select.innerHTML =
+        `<option value="">선택</option>`;
+
+    data.forEach(item => {
+
+        select.innerHTML += `
+            <option value="${item.id}">
+                ${item.name}
+            </option>
+        `;
+
+    });
+
+}
+async function loadDealerNames(typeId) {
+
+    const dealerInput =
+        document.getElementById("dealerName");
+
+    const dealerList =
+        document.getElementById("dealerNameList");
+
+    if (!dealerInput || !dealerList) return;
+
+    dealerList.innerHTML = "";
+
+    if (!typeId) return;
+
+    const { data, error } =
+        await supabaseClient
+            .from("master_dealers")
+            .select("id, dealer_name")
+            .eq("dealer_type_id", typeId)
+            .eq("active", true)
+            .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("거래처명 조회 실패:",error);
+        return;
+    }
+
+    data.forEach(item => {
+
+    dealerList.innerHTML += `
+        <option value="${item.dealer_name}">
+    `;
+
+    });
+}
+async function loadManufacturers() {
+
+    const selects = document.querySelectorAll(
+        'select[name="manufacturer"], select[name="manufacturer_2"]'
+    );
+
+    if (!selects.length) return;
+
+    const { data, error } = await supabaseClient
+        .from("master_manufacturers")
+        .select("name")
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+    console.log("제조사 DATA:", data);
+
+    if (error) {
+        console.error("제조사 조회 오류:", error);
+        return;
+    }
+
+    selects.forEach(select => {
+
+        const currentValue = select.value;
+
+        select.innerHTML =
+            `<option value="">선택</option>`;
+
+        data.forEach(item => {
+
+            const option = document.createElement("option");
+
+            option.value = item.name;
+            option.textContent = item.name;
+
+            select.appendChild(option);
+        });
+
+        if (
+            currentValue &&
+            data.some(item => item.name === currentValue)
+        ) {
+            select.value = currentValue;
+        }
+    });
+
+    console.log("제조사 조회 완료:", data);
+
+}
+async function loadModels(manufacturerName, targetListId) {
+
+    const targetList =
+        document.getElementById(targetListId);
+
+    if (!targetList) return;
+
+    targetList.innerHTML = "";
+
+    if (!manufacturerName) return;
+
+    const { data, error } = await supabaseClient
+        .from("master_models")
+        .select(`
+            name,
+            manufacturer:master_manufacturers!inner(name)
+        `)
+        .eq("manufacturer.name", manufacturerName)
+        .eq("active", true)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("모델 조회 오류:", error);
+        return;
+    }
+
+    data.forEach(item => {
+
+        const option = document.createElement("option");
+
+        option.value = item.name;
+
+        targetList.appendChild(option);
+    });
+
+    console.log("모델 조회 완료:", manufacturerName, data);
+}
+document
+    .getElementById("manufacturerSelect")
+    ?.addEventListener("change", (event) => {
+
+        loadModels(
+            event.target.value,
+            "modelList"
+        );
+
+    });
+
+document
+    .getElementById("manufacturerSelect2")
+    ?.addEventListener("change", (event) => {
+
+        loadModels(
+            event.target.value,
+            "modelList2"
+        );
+
+    });
+document
+    .getElementById("openAdminLoginBtn")
+    .addEventListener("click", () => {
+        document
+            .getElementById("loginModal")
+            .classList.remove("hidden");
+    });
+
+document
+    .getElementById("closeLoginModalBtn")
+    .addEventListener("click", () => {
+        document
+            .getElementById("loginModal")
+            .classList.add("hidden");
+    });
+async function handleAdminLogin() {
+    const email = document
+        .getElementById("adminEmail")
+        .value
+        .trim();
+
+    const password = document
+        .getElementById("adminPassword")
+        .value;
+
+    if (!email || !password) {
+        alert("이메일과 비밀번호를 입력해주세요.");
+        return;
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+    });
+
+    if (error) {
+        console.error("ADMIN LOGIN ERROR:", error);
+        alert("이메일 또는 비밀번호가 올바르지 않습니다.");
+        return;
+    }
+
+    const user = data.user;
+
+    const { data: admin, error: adminError } = await supabaseClient
+        .from("master_admins")
+        .select("id, email, name, active")
+        .eq("email", user.email)
+        .eq("active", true)
+        .maybeSingle();
+
+    if (adminError) {
+        console.error("ADMIN CHECK ERROR:", adminError);
+        await supabaseClient.auth.signOut();
+        alert("관리자 권한 확인 중 오류가 발생했습니다.");
+        return;
+    }
+
+    if (!admin) {
+        await supabaseClient.auth.signOut();
+        alert("관리자 권한이 없습니다.");
+        return;
+    }
+
+    document
+        .getElementById("loginModal")
+        .classList.add("hidden");
+
+    document
+        .getElementById("adminLoggedOut")
+        .classList.add("hidden");
+
+    document
+        .getElementById("adminLoggedIn")
+        .classList.remove("hidden");
+
+    document.getElementById("adminUserName").textContent =
+        admin.name || admin.email;
+
+     showAdminTab();
+
+    alert("관리자 로그인이 완료되었습니다.");
+}
+
+document
+    .getElementById("adminLoginBtn")
+    .addEventListener("click", handleAdminLogin);
+function showAdminTab() {
+    const adminTabButton = document.querySelector('[data-tab="admin"]');
+
+    if (adminTabButton) {
+        adminTabButton.classList.remove("hidden");
+    }
+}
+
+function hideAdminTab() {
+    const adminTabButton = document.querySelector('[data-tab="admin"]');
+
+    if (adminTabButton) {
+        adminTabButton.classList.add("hidden");
+    }
+
+    const adminPage = document.getElementById("adminTab");
+
+    if (adminPage) {
+        adminPage.classList.add("hidden");
+    }
+}
+async function handleAdminLogout() {
+    const { error } = await supabaseClient.auth.signOut();
+
+    if (error) {
+        console.error("ADMIN LOGOUT ERROR:", error);
+        alert("로그아웃 중 오류가 발생했습니다.");
+        return;
+    }
+
+    document
+        .getElementById("adminLoggedOut")
+        .classList.remove("hidden");
+
+    document
+        .getElementById("adminLoggedIn")
+        .classList.add("hidden");
+
+    document.getElementById("adminUserName").textContent = "-";
+
+    hideAdminTab();
+
+    alert("로그아웃되었습니다.");
+}
+
+document
+    .getElementById("adminLogoutBtn")
+    ?.addEventListener("click", handleAdminLogout);
+document
+    .getElementById("dealerType")
+    .addEventListener("change", e => {
+
+        loadDealerNames(e.target.value);
+
+    });

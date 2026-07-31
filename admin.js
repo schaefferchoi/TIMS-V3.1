@@ -1,805 +1,1412 @@
-(function () {
-    "use strict";
+const MASTER_CONFIG = {
 
-    const MASTER_CONFIG = {
-        installers: {
-            table: "master_installers",
-            label: "장착직원",
-            formLabel: "장착직원명",
-            nameColumn: "name",
-            activeColumn: "active"
-        },
-        dealerTypes: {
-            table: "master_dealer_types",
-            label: "거래처 유형",
-            formLabel: "거래처 유형명",
-            nameColumn: "name",
-            activeColumn: "active"
-        },
-        dealers: {
-            table: "master_dealers",
-            label: "거래처명",
-            formLabel: "거래처명",
-            nameColumn: "dealer_name",
-            activeColumn: "active",
-            parentTable: "master_dealer_types",
-            parentColumn: "dealer_type_id",
-            parentNameColumn: "name",
-            parentLabel: "거래처 유형"
-        },
-        manufacturers: {
-            table: "master_manufacturers",
-            label: "제조사",
-            formLabel: "제조사명",
-            nameColumn: "name",
-            activeColumn: "active"
-        },
-        models: {
-            table: "master_models",
-            label: "모델",
-            formLabel: "모델명",
-            nameColumn: "name",
-            activeColumn: "active",
-            parentTable: "master_manufacturers",
-            parentColumn: "manufacturer_id",
-            parentNameColumn: "name",
-            parentLabel: "제조사"
-        }
-    };
+    installers: {
+        table: "master_installers",
+        title: "장착직원",
+        listId: "adminInstallerList",
+        inputId: "newInstallerName",
+        loadFunction: "loadInstallers"
+    },
 
-    const state = {
-        type: "installers",
-        items: [],
-        parents: [],
-        loaded: false,
-        admin: null
-    };
+    dealers: {
+        table: "master_dealer_types",
+        title: "거래처 유형",
+        listId: "adminDealerList",
+        inputId: "newDealerName",
+        loadFunction: "loadDealers"
+    },
 
-    const elements = {};
+    manufacturers:{
+    table:"master_manufacturers",
+    title:"제조사",
+    listId:"adminManufacturerList",
+    inputId:"newManufacturerName",
+    loadFunction:"loadManufacturers"
+}
+};
+document.addEventListener("DOMContentLoaded", () => {
 
-    function escapeHtml(value) {
-        const node = document.createElement("div");
-        node.textContent = String(value ?? "");
-        return node.innerHTML;
+    loadAdminInstallers();
+    loadAdminDealers();
+    loadAdminDealerTypeSelect();
+    loadAdminManufacturers();
+    loadAdminManufacturerSelect();
+
+    document
+    .getElementById("adminModelManufacturer")
+    ?.addEventListener("change", (event) => {
+        loadAdminModels(event.target.value);
+    });
+    document
+     .getElementById("addModelBtn")
+     ?.addEventListener("click", addModel);
+    document
+        .getElementById("addInstallerBtn")
+        ?.addEventListener("click", addInstaller);
+
+    document
+        .getElementById("addDealerBtn")
+        ?.addEventListener("click", addDealer);
+    document
+    .getElementById("addManufacturerBtn")
+    ?.addEventListener("click", addManufacturer);
+    document
+    .getElementById("addDealerCompanyBtn")
+    ?.addEventListener("click", addDealerCompany);
+});
+
+async function loadAdminInstallers() {
+
+    const config = MASTER_CONFIG.installers;
+
+    const target =
+        document.getElementById(config.listId);
+
+    if (!target) return;
+
+    const { data, error } = await supabaseClient
+        .from(config.table)
+        .select("id, name, active, sort_order")
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("관리자 직원 목록 조회 실패:", error);
+        target.innerHTML =
+            `<p class="empty">직원 목록을 불러오지 못했습니다.</p>`;
+        return;
     }
 
-    function escapeAttribute(value) {
-        return String(value ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;");
+    if (!data || data.length === 0) {
+        target.innerHTML =
+            `<p class="empty">등록된 직원이 없습니다.</p>`;
+        return;
     }
 
-    function setMessage(message, isError = false) {
-        elements.message.textContent = message;
-        elements.message.classList.toggle("error", isError);
+    target.innerHTML = `
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th class="admin-col-order">순서</th>
+                    <th>직원명</th>
+                    <th class="admin-col-status">상태</th>
+                    <th class="admin-col-actions">관리</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                ${data.map(installer => `
+                    <tr class="${installer.active ? "" : "admin-row-inactive"}">
+
+                        <td>
+                            <div class="admin-order-control">
+                                <button
+                                    type="button"
+                                    class="admin-order-btn"
+                                    title="위로 이동"
+                                    onclick="moveInstaller(
+                                        ${installer.id},
+                                        ${installer.sort_order},
+                                        -1
+                                    )">
+                                    ▲
+                                </button>
+
+                                <span>
+                                    ${installer.sort_order ?? 0}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    class="admin-order-btn"
+                                    title="아래로 이동"
+                                    onclick="moveInstaller(
+                                        ${installer.id},
+                                        ${installer.sort_order},
+                                        1
+                                    )">
+                                    ▼
+                                </button>
+                            </div>
+                        </td>
+
+                        <td class="admin-name-cell">
+                            ${escapeHtml(installer.name)}
+                        </td>
+
+                        <td>
+                            <span class="${
+                                installer.active
+                                    ? "admin-status active"
+                                    : "admin-status inactive"
+                            }">
+                                ${installer.active ? "사용중" : "미사용"}
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="admin-actions">
+                                <button
+                                    type="button"
+                                    class="secondary"
+                                    onclick="editInstaller(${installer.id})">
+                                    수정
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="${
+                                        installer.active
+                                            ? "danger"
+                                            : "secondary"
+                                    }"
+                                    onclick="toggleInstallerActive(
+                                        ${installer.id},
+                                        ${installer.active}
+                                    )">
+                                    ${
+                                        installer.active
+                                            ? "비활성화"
+                                            : "활성화"
+                                    }
+                                </button>
+                                <button type="button" class="danger"
+                                    onclick="deleteInstaller(${installer.id})">
+                                    삭제
+                                </button>
+                            </div>
+                        </td>
+
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    </div>
+`;
+}
+async function loadAdminDealers() {
+
+    const config = MASTER_CONFIG.dealers;
+
+    const target =
+        document.getElementById(config.listId);
+
+    if (!target) return;
+
+    const { data, error } = await supabaseClient
+        .from(config.table)
+        .select("id, name, active, sort_order")
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("관리자 거래처 목록 조회 실패:", error);
+        target.innerHTML =
+            `<p class="empty">거래처 목록을 불러오지 못했습니다.</p>`;
+        return;
     }
 
-    function setBusy(isBusy) {
-        elements.form.querySelectorAll("input, select, button").forEach(element => {
-            element.disabled = isBusy;
+    if (!data || data.length === 0) {
+        target.innerHTML =
+            `<p class="empty">등록된 거래처가 없습니다.</p>`;
+        return;
+    }
+
+    target.innerHTML = `
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th class="admin-col-order">순서</th>
+                    <th>거래처 유형</th>
+                    <th class="admin-col-status">상태</th>
+                    <th class="admin-col-actions">관리</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                ${data.map(dealer => `
+                    <tr class="${dealer.active ? "" : "admin-row-inactive"}">
+
+                        <td>
+                            <div class="admin-order-control">
+                                <button
+                                    type="button"
+                                    class="admin-order-btn"
+                                    title="위로 이동"
+                                    onclick="moveDealer(
+                                        ${dealer.id},
+                                        ${dealer.sort_order},
+                                        -1
+                                    )">
+                                    ▲
+                                </button>
+
+                                <span>
+                                    ${dealer.sort_order ?? 0}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    class="admin-order-btn"
+                                    title="아래로 이동"
+                                    onclick="moveDealer(
+                                        ${dealer.id},
+                                        ${dealer.sort_order},
+                                        1
+                                    )">
+                                    ▼
+                                </button>
+                            </div>
+                        </td>
+
+                        <td class="admin-name-cell">
+                            ${escapeHtml(dealer.name)}
+                        </td>
+
+                        <td>
+                            <span class="${
+                                dealer.active
+                                    ? "admin-status active"
+                                    : "admin-status inactive"
+                            }">
+                                ${dealer.active ? "사용중" : "미사용"}
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="admin-actions">
+
+                                <button
+                                    type="button"
+                                    class="secondary"
+                                    onclick="editDealer(${dealer.id})">
+                                    수정
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="${
+                                        dealer.active
+                                            ? "danger"
+                                            : "secondary"
+                                    }"
+                                    onclick="toggleDealerActive(
+                                        ${dealer.id},
+                                        ${dealer.active}
+                                    )">
+                                    ${
+                                        dealer.active
+                                            ? "비활성화"
+                                            : "활성화"
+                                    }
+                                </button>
+                                <button type="button" class="danger"
+                                    onclick="deleteDealer(${dealer.id})">
+                                    삭제
+                                </button>
+
+                            </div>
+                        </td>
+
+                    </tr>
+                `).join("")}
+            </tbody>
+        </table>
+    </div>
+    `;
+}
+
+async function loadAdminManufacturers() {
+
+    const config = MASTER_CONFIG.manufacturers;
+
+    const target =
+        document.getElementById(config.listId);
+
+    if (!target) return;
+
+    const { data, error } = await supabaseClient
+        .from(config.table)
+        .select("id, name, active, sort_order")
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("관리자 제조사 목록 조회 실패:", error);
+
+        target.innerHTML =
+            `<p class="empty">제조사 목록을 불러오지 못했습니다.</p>`;
+
+        return;
+    }
+
+    if (!data || data.length === 0) {
+        target.innerHTML =
+            `<p class="empty">등록된 제조사가 없습니다.</p>`;
+
+        return;
+    }
+
+    target.innerHTML = `
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+
+                <thead>
+                    <tr>
+                        <th class="admin-col-order">순서</th>
+                        <th>제조사명</th>
+                        <th class="admin-col-status">상태</th>
+                        <th class="admin-col-actions">관리</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${data.map(manufacturer => `
+                        <tr class="${
+                            manufacturer.active
+                                ? ""
+                                : "admin-row-inactive"
+                        }">
+
+                            <td>
+                                <div class="admin-order-control">
+
+                                    <button
+                                        type="button"
+                                        class="admin-order-btn"
+                                        title="위로 이동"
+                                        onclick="moveManufacturer(
+                                            ${manufacturer.id},
+                                            ${manufacturer.sort_order},
+                                            -1
+                                        )">
+                                        ▲
+                                    </button>
+
+                                    <span>
+                                        ${manufacturer.sort_order ?? 0}
+                                    </span>
+
+                                    <button
+                                        type="button"
+                                        class="admin-order-btn"
+                                        title="아래로 이동"
+                                        onclick="moveManufacturer(
+                                            ${manufacturer.id},
+                                            ${manufacturer.sort_order},
+                                            1
+                                        )">
+                                        ▼
+                                    </button>
+
+                                </div>
+                            </td>
+
+                            <td class="admin-name-cell">
+                                ${escapeHtml(manufacturer.name)}
+                            </td>
+
+                            <td>
+                                <span class="${
+                                    manufacturer.active
+                                        ? "admin-status active"
+                                        : "admin-status inactive"
+                                }">
+                                    ${
+                                        manufacturer.active
+                                            ? "사용중"
+                                            : "미사용"
+                                    }
+                                </span>
+                            </td>
+
+                            <td>
+                                <div class="admin-actions">
+
+                                    <button
+                                        type="button"
+                                        class="secondary"
+                                        onclick="editManufacturer(
+                                            ${manufacturer.id}
+                                        )">
+                                        수정
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="${
+                                            manufacturer.active
+                                                ? "danger"
+                                                : "secondary"
+                                        }"
+                                        onclick="toggleManufacturerActive(
+                                            ${manufacturer.id},
+                                            ${manufacturer.active}
+                                        )">
+                                        ${
+                                            manufacturer.active
+                                                ? "비활성화"
+                                                : "활성화"
+                                        }
+                                    </button>
+                                    <button type="button" class="danger"
+                                        onclick="deleteManufacturer(${manufacturer.id})">
+                                        삭제
+                                    </button>
+
+                                </div>
+                            </td>
+
+                        </tr>
+                    `).join("")}
+                </tbody>
+
+            </table>
+        </div>
+    `;
+}
+
+async function addInstaller() {
+
+    const config = MASTER_CONFIG.installers;
+
+    const input =
+        document.getElementById(config.inputId);
+
+    const name = input?.value.trim();
+
+    if (!name) {
+        alert("직원명을 입력하세요.");
+        input?.focus();
+        return;
+    }
+
+    let nextOrder;
+
+try {
+    nextOrder = await getNextSortOrder(config.table);
+} catch (error) {
+    console.error("직원 순서 조회 실패:", error);
+    alert("직원 추가 준비 중 오류가 발생했습니다.");
+    return;
+}
+
+    const { error } = await supabaseClient
+        .from(config.table)
+        .insert({
+            name,
+            active: true,
+            sort_order: nextOrder
         });
-        elements.refresh.disabled = isBusy;
+
+    if (error) {
+        console.error("직원 추가 실패:", error);
+        alert("직원 추가에 실패했습니다.");
+        return;
     }
 
-    function ensureAdmin() {
-        if (state.admin) return true;
-        showAdminLoginRequired();
-        return false;
+    input.value = "";
+
+    await loadAdminInstallers();
+
+    if (typeof loadInstallers === "function") {
+        await loadInstallers();
     }
 
-    function resetForm(preserveParent = false) {
-        elements.id.value = "";
-        elements.name.value = "";
-        elements.submit.textContent = "추가";
-        elements.cancel.classList.add("hidden");
-        if (elements.parent && !preserveParent) elements.parent.value = "";
+    alert("직원이 추가되었습니다.");
+}
+
+window.editInstaller = async function (id) {
+
+    const config = MASTER_CONFIG.installers;
+
+    const success =
+        await editMasterItem(config, id);
+
+    if (!success) return;
+
+    await loadAdminInstallers();
+
+    if (typeof loadInstallers === "function") {
+        await loadInstallers();
     }
 
-    function sortItems(items) {
-        return [...items].sort((a, b) => {
-            const orderDiff = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
-            return orderDiff || String(a.name || "").localeCompare(String(b.name || ""), "ko");
-        });
+};
+window.toggleInstallerActive = async function (
+    id,
+    currentActive
+) {
+    const config = MASTER_CONFIG.installers;
+
+    const success = await toggleMasterItem(
+        config,
+        id,
+        currentActive
+    );
+
+    if (!success) return;
+
+    await loadAdminInstallers();
+
+    if (typeof loadInstallers === "function") {
+        await loadInstallers();
+    }
+};
+window.moveInstaller = async function (
+    id,
+    currentOrder,
+    direction
+) {
+
+    const config = MASTER_CONFIG.installers;
+
+    const success = await moveMasterItem(
+        config,
+        id,
+        currentOrder,
+        direction
+    );
+
+    if (!success) return;
+
+    await loadAdminInstallers();
+
+    if (typeof loadInstallers === "function") {
+        await loadInstallers();
     }
 
-    function masterSelect(config) {
-        return [
-            "id",
-            `name:${config.nameColumn}`,
-            `is_active:${config.activeColumn}`,
-            ...(config.parentColumn ? [config.parentColumn] : []),
-            "sort_order"
-        ].join(", ");
+};
+async function addDealer() {
+
+    const config = MASTER_CONFIG.dealers;
+
+    const success = await addMasterItem(config);
+
+    if (!success) return;
+
+    await loadAdminDealers();
+
+    if (typeof loadDealers === "function") {
+        await loadDealers();
     }
 
-    function renderList() {
-        if (!state.items.length) {
-            elements.body.innerHTML = '<tr><td colspan="4" class="empty">등록된 항목이 없습니다.</td></tr>';
-            return;
-        }
+    alert("거래처가 추가되었습니다.");
+}
+window.editDealer = async function (id) {
 
-        const config = MASTER_CONFIG[state.type];
-        elements.body.innerHTML = state.items.map((item, index) => `
-            <tr data-id="${escapeAttribute(item.id)}" class="${item.is_active === false ? "inactive" : ""}">
-                <td class="admin-order-cell">
-                    <button type="button" data-action="up" aria-label="위로 이동" ${index === 0 ? "disabled" : ""}>↑</button>
-                    <button type="button" data-action="down" aria-label="아래로 이동" ${index === state.items.length - 1 ? "disabled" : ""}>↓</button>
-                </td>
-                <td>${escapeHtml(item.name)}</td>
-                <td><span class="admin-status ${item.is_active === false ? "off" : "on"}">${item.is_active === false ? "비활성" : "활성"}</span></td>
-                <td class="admin-action-cell">
-                    <button type="button" data-action="edit">수정</button>
-                    <button type="button" data-action="toggle">${item.is_active === false ? "활성화" : "비활성화"}</button>
-                    <button type="button" data-action="delete" class="admin-delete-button">삭제</button>
-                </td>
-            </tr>
-        `).join("");
+    const config = MASTER_CONFIG.dealers;
+
+    const success = await editMasterItem(
+        config,
+        id
+    );
+
+    if (!success) return;
+
+    await loadAdminDealers();
+
+    if (typeof loadDealers === "function") {
+        await loadDealers();
     }
+};
+window.toggleDealerActive = async function (
+    id,
+    currentActive
+) {
 
-    async function loadMaster(showFeedback = false) {
-        if (!ensureAdmin()) return;
-        const config = MASTER_CONFIG[state.type];
-        elements.body.innerHTML = '<tr><td colspan="4" class="empty">불러오는 중입니다.</td></tr>';
-        setMessage("");
+    const config = MASTER_CONFIG.dealers;
 
-        let parentResult = null;
-        if (config.parentTable) {
-            parentResult = await supabaseClient
-                .from(config.parentTable)
-                .select(`id, name:${config.parentNameColumn}, is_active:${config.activeColumn}, sort_order`)
-                .order("sort_order", { ascending: true });
-            if (parentResult.error) {
-                console.error(`${config.parentLabel} 조회 실패:`, parentResult.error);
-                setMessage(`${config.parentLabel} 조회 실패: ${parentResult.error.message}`, true);
-                return;
-            }
-            state.parents = sortItems(parentResult.data || []);
-        } else {
-            state.parents = [];
-        }
+    const success = await toggleMasterItem(
+        config,
+        id,
+        currentActive
+    );
 
-        renderParentOptions();
-        let itemQuery = supabaseClient
-            .from(config.table)
-            .select(masterSelect(config))
-            .order("sort_order", { ascending: true });
-        if (config.parentColumn) {
-            itemQuery = itemQuery.eq(
-                config.parentColumn,
-                Number(elements.parent.value)
-            );
-        }
-        const itemResult = await itemQuery;
-        const { data, error } = itemResult;
+    if (!success) return;
 
-        if (error) {
-            console.error(`${config.label} 조회 실패:`, error);
-            elements.body.innerHTML = '<tr><td colspan="4" class="empty">데이터를 불러오지 못했습니다.</td></tr>';
-            setMessage(`${config.label} 조회 실패: ${error.message}`, true);
-            return;
-        }
+    await loadAdminDealers();
 
-        const parentMap = new Map(
-            state.parents.map(parent => [String(parent.id), parent.name])
-        );
-        state.items = sortItems(data || []).map(item => ({
-            ...item,
-            parent_name: config.parentColumn
-                ? parentMap.get(String(item[config.parentColumn])) || ""
-                : ""
-        }));
-        state.loaded = true;
-        renderList();
-        if (showFeedback) setMessage(`${config.label} 목록을 새로고침했습니다.`);
-        refreshInstallFormMasters();
+    if (typeof loadDealers === "function") {
+        await loadDealers();
     }
+};
+window.moveDealer = async function (
+    id,
+    currentOrder,
+    direction
+) {
 
-    async function saveItem(event) {
-        event.preventDefault();
-        if (!ensureAdmin()) return;
-        const config = MASTER_CONFIG[state.type];
-        const name = elements.name.value.trim();
-        const id = elements.id.value;
-        const parentId = elements.parent?.value || "";
+    const config = MASTER_CONFIG.dealers;
 
-        if (!name) {
-            setMessage(`${config.formLabel}을 입력하세요.`, true);
-            elements.name.focus();
-            return;
-        }
-        if (config.parentColumn && !parentId) {
-            setMessage(`${config.parentLabel}을 선택하세요.`, true);
-            elements.parent.focus();
-            return;
-        }
+    const success = await moveMasterItem(
+        config,
+        id,
+        currentOrder,
+        direction
+    );
 
-        const duplicate = state.items.some(item => {
-            const sameItem = String(item.id) === id;
-            const sameName =
-                String(item.name || "").trim().toLocaleLowerCase() ===
-                name.toLocaleLowerCase();
-            const sameParent =
-                !config.parentColumn ||
-                String(item[config.parentColumn] || "") === parentId;
-            return !sameItem && sameName && sameParent;
-        });
-        if (duplicate) {
-            setMessage("같은 이름이 이미 등록되어 있습니다.", true);
-            return;
-        }
+    if (!success) return;
 
-        setBusy(true);
-        const values = {
-            [config.nameColumn]: name,
-            ...(config.parentColumn
-                ? { [config.parentColumn]: Number(parentId) }
-                : {})
-        };
-        const query = id
-            ? supabaseClient
-                .from(config.table)
-                .update(values)
-                .eq("id", id)
-            : supabaseClient.from(config.table).insert({
-                ...values,
-                [config.activeColumn]: true,
-                sort_order: state.items.length
-            });
-        const { error } = await query;
-        setBusy(false);
+    await loadAdminDealers();
 
-        if (error) {
-            console.error(`${config.label} 저장 실패:`, error);
-            setMessage(`저장 실패: ${error.message}`, true);
-            return;
-        }
-
-        resetForm(true);
-        await loadMaster();
-        setMessage(`${config.label}을 ${id ? "수정" : "추가"}했습니다.`);
+    if (typeof loadDealers === "function") {
+        await loadDealers();
     }
+};
+async function addManufacturer() {
 
-    async function toggleItem(item) {
-        if (!ensureAdmin()) return;
-        const config = MASTER_CONFIG[state.type];
-        const nextActive = item.is_active === false;
-        const { error } = await supabaseClient
-            .from(config.table)
-            .update({ [config.activeColumn]: nextActive })
-            .eq("id", item.id);
-
-        if (error) {
-            console.error(`${config.label} 상태 변경 실패:`, error);
-            setMessage(`상태 변경 실패: ${error.message}`, true);
-            return;
-        }
-
-        await loadMaster();
-        setMessage(`${item.name}을(를) ${nextActive ? "활성화" : "비활성화"}했습니다.`);
-    }
-
-    async function deleteItem(item) {
-        if (!ensureAdmin()) return;
-        const config = MASTER_CONFIG[state.type];
-        const confirmed = confirm(
-            `${config.label} "${item.name}"을(를) 삭제하시겠습니까?\n` +
-            "삭제한 항목은 복구할 수 없습니다."
-        );
-        if (!confirmed) return;
-
-        setMessage("");
-        const { error } = await supabaseClient
-            .from(config.table)
-            .delete()
-            .eq("id", item.id);
-
-        if (error) {
-            console.error(`${config.label} 삭제 실패:`, error);
-            if (error.code === "23503") {
-                setMessage(
-                    "다른 데이터에서 사용 중인 항목은 삭제할 수 없습니다. 비활성화를 사용하세요.",
-                    true
-                );
-            } else {
-                setMessage(`삭제 실패: ${error.message}`, true);
-            }
-            return;
-        }
-
-        if (elements.id.value === String(item.id)) {
-            resetForm(true);
-        }
-        await loadMaster();
-        setMessage(`${item.name}을(를) 삭제했습니다.`);
-    }
-
-    async function moveItem(index, direction) {
-        if (!ensureAdmin()) return;
-        const targetIndex = index + direction;
-        if (targetIndex < 0 || targetIndex >= state.items.length) return;
-
-        const reordered = [...state.items];
-        [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
-        const config = MASTER_CONFIG[state.type];
-        const results = await Promise.all(reordered.map((item, sortOrder) =>
-            supabaseClient.from(config.table).update({ sort_order: sortOrder }).eq("id", item.id)
-        ));
-        const failed = results.find(result => result.error);
-
-        if (failed) {
-            console.error(`${config.label} 순서 변경 실패:`, failed.error);
-            setMessage(`순서 변경 실패: ${failed.error.message}`, true);
-            await loadMaster();
-            return;
-        }
-
-        state.items = reordered.map((item, sortOrder) => ({ ...item, sort_order: sortOrder }));
-        renderList();
-        refreshInstallFormMasters();
-        setMessage("표시 순서를 변경했습니다.");
-    }
-
-    function handleListClick(event) {
-        const config = MASTER_CONFIG[state.type];
-        const button = event.target.closest("button[data-action]");
-        const row = button?.closest("tr[data-id]");
-        if (!button || !row) return;
-
-        const index = state.items.findIndex(item => String(item.id) === row.dataset.id);
-        if (index < 0) return;
-        const item = state.items[index];
-
-        if (button.dataset.action === "edit") {
-            elements.id.value = item.id;
-            elements.name.value = item.name;
-            if (config.parentColumn) {
-                elements.parent.value = String(item[config.parentColumn] || "");
-            }
-            elements.submit.textContent = "저장";
-            elements.cancel.classList.remove("hidden");
-            elements.name.focus();
-        } else if (button.dataset.action === "toggle") {
-            toggleItem(item);
-        } else if (button.dataset.action === "delete") {
-            deleteItem(item);
-        } else if (button.dataset.action === "up") {
-            moveItem(index, -1);
-        } else if (button.dataset.action === "down") {
-            moveItem(index, 1);
-        }
-    }
-
-    function renderParentOptions() {
-        const config = MASTER_CONFIG[state.type];
-        const hasParent = Boolean(config.parentColumn);
-        elements.parentField.classList.toggle("hidden", !hasParent);
-        elements.parentLabel.textContent = config.parentLabel || "분류";
-
-        if (!hasParent) {
-            elements.parent.innerHTML = "";
-            return;
-        }
-
-        const currentValue = elements.parent.value;
-        const firstActiveParent = state.parents.find(item =>
-            item.is_active !== false
-        );
-        const selectedValue = state.parents.some(item =>
-            String(item.id) === currentValue
-        )
-            ? currentValue
-            : String(firstActiveParent?.id || "");
-        elements.parent.innerHTML = '<option value="">선택</option>' +
-            state.parents
-                .filter(item =>
-                    item.is_active !== false ||
-                    String(item.id) === selectedValue
-                )
-                .map(item => `
-                    <option value="${escapeAttribute(item.id)}">
-                        ${escapeHtml(item.name)}
-                    </option>
-                `)
-                .join("");
-        elements.parent.value = selectedValue;
-    }
-
-    let dealerItems = [];
-    let manufacturerItems = [];
-    let modelItems = [];
-
-    function renderDealerNameOptions() {
-        const typeSelect = document.getElementById("dealerTypeSelect");
-        const nameInput = document.getElementById("dealerNameInput");
-        const dealerIdInput = document.getElementById("dealerId");
-        const datalist = document.getElementById("dealerNameOptions");
-        if (!typeSelect || !nameInput || !dealerIdInput || !datalist) return;
-
-        const selectedTypeId = typeSelect.value;
-        const availableDealers = dealerItems.filter(item =>
-            item.is_active !== false &&
-            (!selectedTypeId || String(item.dealer_type_id || "") === selectedTypeId)
+    const success =
+        await addMasterItem(
+            MASTER_CONFIG.manufacturers
         );
 
-        datalist.innerHTML = availableDealers
-            .map(item => `<option value="${escapeAttribute(item.name)}"></option>`)
-            .join("");
+    if (!success) return;
 
-        const matchedDealer = availableDealers.find(item =>
-            item.name === nameInput.value.trim()
-        );
-        dealerIdInput.value = matchedDealer?.id || "";
+    await loadAdminManufacturers();
+
+    if (typeof loadManufacturers === "function") {
+        await loadManufacturers();
     }
+}
+window.editManufacturer = async function (id) {
 
-    function renderDealerFields(types, dealers) {
-        const typeSelect = document.getElementById("dealerTypeSelect");
-        const nameInput = document.getElementById("dealerNameInput");
-        if (!typeSelect || !nameInput) return;
-
-        const currentTypeId = typeSelect.value;
-        dealerItems = dealers;
-        typeSelect.innerHTML = '<option value="">선택</option>' + types
-            .filter(item =>
-                item.is_active !== false ||
-                String(item.id) === currentTypeId
-            )
-            .map(item => `
-                <option value="${escapeAttribute(item.id)}">
-                    ${escapeHtml(item.name)}
-                </option>
-            `)
-            .join("");
-        typeSelect.value = currentTypeId;
-        renderDealerNameOptions();
-    }
-
-    function renderModelOptions(
-        manufacturerSelectId,
-        modelSelectId,
-        preserveModel = true,
-        desiredModel = null
-    ) {
-        const manufacturerSelect =
-            document.getElementById(manufacturerSelectId);
-        const modelSelect = document.getElementById(modelSelectId);
-        if (!manufacturerSelect || !modelSelect) return;
-
-        const currentModel = desiredModel ?? (
-            preserveModel ? modelSelect.value : ""
-        );
-        const manufacturer = manufacturerItems.find(item =>
-            item.name === manufacturerSelect.value
-        );
-        const availableModels = modelItems.filter(item =>
-            item.is_active !== false &&
-            manufacturer &&
-            String(item.manufacturer_id) === String(manufacturer.id)
+    const success =
+        await editMasterItem(
+            MASTER_CONFIG.manufacturers,
+            id
         );
 
-        modelSelect.innerHTML = manufacturer
-            ? '<option value="">선택</option>' +
-                availableModels
-                    .map(item => `
-                        <option value="${escapeAttribute(item.name)}">
-                            ${escapeHtml(item.name)}
-                        </option>
-                    `)
-                    .join("")
-            : '<option value="">제조사를 먼저 선택</option>';
+    if (!success) return;
 
-        if (
-            currentModel &&
-            !availableModels.some(item => item.name === currentModel)
-        ) {
-            modelSelect.insertAdjacentHTML(
-                "beforeend",
-                `<option value="${escapeAttribute(currentModel)}">${escapeHtml(currentModel)}</option>`
-            );
-        }
-        modelSelect.value = currentModel;
+    await loadAdminManufacturers();
+
+    if (typeof loadManufacturers === "function") {
+        await loadManufacturers();
     }
+};
+window.toggleManufacturerActive =
+async function (id, currentActive) {
 
-    function renderMachineMasterFields(manufacturers, models) {
-        manufacturerItems = manufacturers;
-        modelItems = models;
+    const success =
+        await toggleMasterItem(
+            MASTER_CONFIG.manufacturers,
+            id,
+            currentActive
+        );
 
-        [
-            ["manufacturerSelect", "modelSelect"],
-            ["manufacturerSelect2", "modelSelect2"]
-        ].forEach(([manufacturerSelectId, modelSelectId]) => {
-            const select = document.getElementById(manufacturerSelectId);
-            if (!select) return;
+    if (!success) return;
 
-            const currentValue = select.value;
-            select.innerHTML = '<option value="">선택</option>' +
-                manufacturerItems
-                    .filter(item =>
-                        item.is_active !== false ||
-                        item.name === currentValue
-                    )
-                    .map(item => `
-                        <option value="${escapeAttribute(item.name)}">
-                            ${escapeHtml(item.name)}
-                        </option>
-                    `)
-                    .join("");
-            select.value = currentValue;
-            renderModelOptions(
-                manufacturerSelectId,
-                modelSelectId,
-                true
-            );
-        });
+    await loadAdminManufacturers();
+
+    if (typeof loadManufacturers === "function") {
+        await loadManufacturers();
     }
+};
+window.moveManufacturer =
+async function (
+    id,
+    currentOrder,
+    direction
+) {
 
-    function renderInstallerButtons(items) {
-        const container = document.getElementById("installerButtons");
-        const hiddenInput = document.getElementById("installer");
-        if (!container || !hiddenInput || !items.length) return;
-        const selected = new Set(String(hiddenInput.value || "").split(",").map(value => value.trim()).filter(Boolean));
-        container.innerHTML = items
-            .filter(item => item.is_active !== false || selected.has(item.name))
-            .map(item => `<button type="button" data-name="${escapeAttribute(item.name)}" class="${selected.has(item.name) ? "active" : ""}">${escapeHtml(item.name)}</button>`)
-            .join("");
-        container.dataset.masterManaged = "true";
+    const success =
+        await moveMasterItem(
+            MASTER_CONFIG.manufacturers,
+            id,
+            currentOrder,
+            direction
+        );
+
+    if (!success) return;
+
+    await loadAdminManufacturers();
+
+    if (typeof loadManufacturers === "function") {
+        await loadManufacturers();
     }
+};
+async function loadAdminManufacturerSelect() {
 
-    async function refreshInstallFormMasters() {
-        const configs = [
-            MASTER_CONFIG.installers,
-            MASTER_CONFIG.dealers
-        ];
-        const results = await Promise.all([
-            ...configs.map(config =>
-                supabaseClient
-                    .from(config.table)
-                    .select(masterSelect(config))
-                    .order("sort_order", { ascending: true })
-            ),
-            supabaseClient
-                .from("master_dealer_types")
-                .select("id, name, is_active:active, sort_order")
-                .order("sort_order", { ascending: true }),
-            supabaseClient
-                .from("master_manufacturers")
-                .select("id, name, is_active:active, sort_order")
-                .order("sort_order", { ascending: true }),
-            supabaseClient
-                .from("master_models")
-                .select("id, name, is_active:active, sort_order, manufacturer_id")
-                .order("sort_order", { ascending: true })
-        ]);
-        if (!results[0].error) renderInstallerButtons(results[0].data || []);
-        if (!results[1].error && !results[2].error) {
-            renderDealerFields(
-                sortItems(results[2].data || []),
-                sortItems(results[1].data || [])
-            );
-        }
-        if (!results[3].error && !results[4].error) {
-            renderMachineMasterFields(
-                sortItems(results[3].data || []),
-                sortItems(results[4].data || [])
-            );
-        }
-    }
+    const select =
+        document.getElementById("adminModelManufacturer");
 
-    function bindInstallerSelection() {
-        document.getElementById("installerButtons")?.addEventListener("click", event => {
-            if (event.currentTarget.dataset.masterManaged !== "true") return;
-            const button = event.target.closest("button[data-name]");
-            if (!button) return;
-            button.classList.toggle("active");
-            document.getElementById("installer").value = [...event.currentTarget.querySelectorAll("button.active")]
-                .map(item => item.dataset.name)
-                .join(", ");
-        });
-    }
+    if (!select) return;
 
-    function setAuthMessage(message, isError = false) {
-        if (!elements.authMessage) return;
-        elements.authMessage.textContent = message;
-        elements.authMessage.classList.toggle("error", isError);
-    }
-
-    function updateAdminSession(admin) {
-        state.admin = admin;
-        window.isMasterAdmin = Boolean(admin);
-        elements.loginForm?.classList.toggle("hidden", Boolean(admin));
-        elements.sessionPanel?.classList.toggle("hidden", !admin);
-        if (elements.sessionName) {
-            elements.sessionName.textContent = admin?.name || "";
-        }
-        if (!admin) {
-            state.loaded = false;
-            const adminTab = document.getElementById("adminTab");
-            const wasViewingAdmin =
-                adminTab && !adminTab.classList.contains("hidden");
-            adminTab?.classList.add("hidden");
-            if (wasViewingAdmin) {
-                document
-                    .querySelector('[data-tab="setting"]')
-                    ?.click();
-            }
-        }
-    }
-
-    async function verifyAdminUser(user) {
-        if (!user?.email) return null;
-
-        const { data, error } = await supabaseClient
-            .from("master_admins")
-            .select("id, name, active")
-            .eq("email", user.email)
+    const { data, error } =
+        await supabaseClient
+            .from("master_manufacturers")
+            .select("name")
             .eq("active", true)
-            .maybeSingle();
+            .order("sort_order");
 
-        if (error) {
-            console.error("관리자 권한 확인 실패:", error);
-            return null;
-        }
-        return data || null;
+    if (error) {
+        console.error(error);
+        return;
     }
 
-    async function restoreAdminSession() {
-        const { data, error } = await supabaseClient.auth.getSession();
-        if (error) {
-            console.error("관리자 세션 확인 실패:", error);
-            updateAdminSession(null);
-            return;
-        }
+    select.innerHTML =
+        `<option value="">제조사 선택</option>`;
 
-        const admin = await verifyAdminUser(data.session?.user);
-        updateAdminSession(admin);
+    data.forEach(item => {
+
+        select.innerHTML += `
+            <option value="${item.name}">
+                ${item.name}
+            </option>
+        `;
+
+    });
+
+}
+async function loadAdminDealerTypeSelect() {
+
+    const select =
+        document.getElementById("adminDealerType");
+
+    if (!select) return;
+
+    const { data, error } =
+        await supabaseClient
+            .from("master_dealer_types")
+            .select("id,name")
+            .eq("active", true)
+            .order("sort_order");
+
+    if (error) {
+        console.error("거래처 유형 조회 실패:", error);
+        return;
     }
 
-    async function loginAdmin(event) {
-        event.preventDefault();
-        const email = elements.loginEmail.value.trim();
-        const password = elements.loginPassword.value;
-        setAuthMessage("");
-        elements.loginButton.disabled = true;
+    select.innerHTML =
+        `<option value="">거래처 유형 선택</option>`;
 
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-            email,
-            password
-        });
-        elements.loginButton.disabled = false;
+    data.forEach(item => {
 
-        if (error) {
-            setAuthMessage("이메일 또는 비밀번호를 확인하세요.", true);
-            return;
-        }
+        select.innerHTML += `
+            <option value="${item.id}">
+                ${item.name}
+            </option>
+        `;
+    });
+}
+async function loadAdminModels(manufacturerName) {
 
-        const admin = await verifyAdminUser(data.user);
-        if (!admin) {
-            await supabaseClient.auth.signOut();
-            updateAdminSession(null);
-            setAuthMessage("마스터 관리 권한이 없는 계정입니다.", true);
-            return;
-        }
+    const target =
+        document.getElementById("adminModelList");
 
-        elements.loginPassword.value = "";
-        updateAdminSession(admin);
-        setAuthMessage(`${admin.name} 관리자로 로그인했습니다.`);
+    if (!target) return;
+
+    if (!manufacturerName) {
+        target.innerHTML =
+            `<p class="empty">제조사를 선택하세요.</p>`;
+        return;
     }
 
-    async function logoutAdmin() {
-        const { error } = await supabaseClient.auth.signOut();
-        if (error) {
-            setAuthMessage(`로그아웃 실패: ${error.message}`, true);
-            return;
-        }
-        updateAdminSession(null);
-        setAuthMessage("로그아웃했습니다.");
+    const { data, error } = await supabaseClient
+        .from("master_models")
+        .select(`
+            id,
+            name,
+            active,
+            sort_order,
+            manufacturer:master_manufacturers!inner(name)
+        `)
+        .eq("manufacturer.name", manufacturerName)
+        .order("sort_order", { ascending: true });
+
+    if (error) {
+        console.error("관리자 모델 목록 조회 실패:", error);
+
+        target.innerHTML =
+            `<p class="empty">모델 목록을 불러오지 못했습니다.</p>`;
+
+        return;
     }
 
-    function showAdminLoginRequired() {
-        setAuthMessage("마스터 관리 기능을 사용하려면 관리자 로그인이 필요합니다.", true);
-        document.getElementById("adminLoginEmail")?.focus();
+    if (!data || data.length === 0) {
+        target.innerHTML =
+            `<p class="empty">등록된 모델이 없습니다.</p>`;
+        return;
     }
 
-    function init() {
-        elements.body = document.getElementById("adminMasterBody");
-        elements.form = document.getElementById("adminMasterForm");
-        elements.id = document.getElementById("adminMasterId");
-        elements.name = document.getElementById("adminMasterName");
-        elements.nameLabel = document.getElementById("adminMasterNameLabel");
-        elements.parentField = document.getElementById("adminMasterParentField");
-        elements.parent = document.getElementById("adminMasterParent");
-        elements.parentLabel = document.getElementById("adminMasterParentLabel");
-        elements.submit = document.getElementById("adminMasterSubmit");
-        elements.cancel = document.getElementById("adminMasterCancel");
-        elements.message = document.getElementById("adminMasterMessage");
-        elements.refresh = document.getElementById("adminMasterRefresh");
-        elements.loginForm = document.getElementById("adminLoginForm");
-        elements.loginEmail = document.getElementById("adminLoginEmail");
-        elements.loginPassword = document.getElementById("adminLoginPassword");
-        elements.loginButton = document.getElementById("adminLoginButton");
-        elements.sessionPanel = document.getElementById("adminSessionPanel");
-        elements.sessionName = document.getElementById("adminSessionName");
-        elements.logoutButton = document.getElementById("adminLogoutButton");
-        elements.authMessage = document.getElementById("adminAuthMessage");
-        if (!elements.form || typeof supabaseClient === "undefined") return;
+    target.innerHTML = `
+        <div class="admin-table-wrap">
+            <table class="admin-table">
 
-        elements.form.addEventListener("submit", saveItem);
-        elements.body.addEventListener("click", handleListClick);
-        elements.cancel.addEventListener("click", resetForm);
-        elements.parent.addEventListener("change", () => {
-            resetForm(true);
-            loadMaster();
-        });
-        elements.refresh.addEventListener("click", () => loadMaster(true));
-        elements.loginForm?.addEventListener("submit", loginAdmin);
-        elements.logoutButton?.addEventListener("click", logoutAdmin);
-        document.querySelectorAll(".admin-master-tab").forEach(tab => {
-            tab.addEventListener("click", () => {
-                state.type = tab.dataset.master;
-                document.querySelectorAll(".admin-master-tab").forEach(item => item.classList.toggle("active", item === tab));
-                elements.nameLabel.textContent = MASTER_CONFIG[state.type].formLabel;
-                resetForm();
-                state.parents = [];
-                renderParentOptions();
-                loadMaster();
+                <thead>
+                    <tr>
+                        <th class="admin-col-order">순서</th>
+                        <th>모델명</th>
+                        <th class="admin-col-status">상태</th>
+                        <th class="admin-col-actions">관리</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    ${data.map(model => `
+                        <tr class="${model.active ? "" : "admin-row-inactive"}">
+
+                            <td>
+                                <div class="admin-order-control">
+
+                                    <button
+                                        type="button"
+                                        class="admin-order-btn"
+                                        onclick="moveModel(
+                                            ${model.id},
+                                            ${model.sort_order},
+                                            -1
+                                        )">
+                                        ▲
+                                    </button>
+
+                                    <span>
+                                        ${model.sort_order ?? 0}
+                                    </span>
+
+                                    <button
+                                        type="button"
+                                        class="admin-order-btn"
+                                        onclick="moveModel(
+                                            ${model.id},
+                                            ${model.sort_order},
+                                            1
+                                        )">
+                                        ▼
+                                    </button>
+
+                                </div>
+                            </td>
+
+                            <td class="admin-name-cell">
+                                ${escapeHtml(model.name)}
+                            </td>
+
+                            <td>
+                                <span class="${
+                                    model.active
+                                        ? "admin-status active"
+                                        : "admin-status inactive"
+                                }">
+                                    ${model.active ? "사용중" : "미사용"}
+                                </span>
+                            </td>
+
+                            <td>
+                                <div class="admin-actions">
+
+                                    <button
+                                        type="button"
+                                        class="secondary"
+                                        onclick="editModel(${model.id})">
+                                        수정
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="${
+                                            model.active
+                                                ? "danger"
+                                                : "secondary"
+                                        }"
+                                        onclick="toggleModelActive(
+                                            ${model.id},
+                                            ${model.active}
+                                        )">
+                                        ${
+                                            model.active
+                                                ? "비활성화"
+                                                : "활성화"
+                                        }
+                                    </button>
+                                    <button type="button" class="danger"
+                                        onclick="deleteModel(${model.id})">
+                                        삭제
+                                    </button>
+
+                                </div>
+                            </td>
+
+                        </tr>
+                    `).join("")}
+                </tbody>
+
+            </table>
+        </div>
+    `;
+}
+async function addModel() {
+
+    const manufacturerSelect =
+        document.getElementById("adminModelManufacturer");
+
+    const modelInput =
+        document.getElementById("newModelName");
+
+    const manufacturerName =
+        manufacturerSelect?.value;
+
+    const modelName =
+        modelInput?.value.trim();
+
+    if (!manufacturerName) {
+        alert("제조사를 선택하세요.");
+        manufacturerSelect?.focus();
+        return;
+    }
+
+    if (!modelName) {
+        alert("모델명을 입력하세요.");
+        modelInput?.focus();
+        return;
+    }
+
+    const { data: manufacturer, error: manufacturerError } =
+        await supabaseClient
+            .from("master_manufacturers")
+            .select("id")
+            .eq("name", manufacturerName)
+            .single();
+
+    if (manufacturerError || !manufacturer) {
+        console.error(
+            "제조사 조회 실패:",
+            manufacturerError
+        );
+
+        alert("제조사 정보를 찾지 못했습니다.");
+        return;
+    }
+
+    const { data: lastModels, error: orderError } =
+        await supabaseClient
+            .from("master_models")
+            .select("sort_order")
+            .eq(
+                "manufacturer_id",
+                manufacturer.id
+            )
+            .order(
+                "sort_order",
+                { ascending: false }
+            )
+            .limit(1);
+
+    if (orderError) {
+        console.error(
+            "모델 순서 조회 실패:",
+            orderError
+        );
+
+        alert("모델 추가 준비 중 오류가 발생했습니다.");
+        return;
+    }
+
+    const nextOrder =
+        (lastModels?.[0]?.sort_order ?? 0) + 1;
+
+    const { error } =
+        await supabaseClient
+            .from("master_models")
+            .insert({
+                manufacturer_id:
+                    manufacturer.id,
+                name: modelName,
+                active: true,
+                sort_order: nextOrder
             });
-        });
-        document.querySelector('[data-tab="admin"]')?.addEventListener("click", () => {
-            if (state.admin && !state.loaded) loadMaster();
-        });
 
-        bindInstallerSelection();
-        document
-            .getElementById("dealerTypeSelect")
-            ?.addEventListener("change", () => {
-                const dealerIdInput = document.getElementById("dealerId");
-                if (dealerIdInput) dealerIdInput.value = "";
-                renderDealerNameOptions();
-            });
-        document
-            .getElementById("dealerNameInput")
-            ?.addEventListener("input", renderDealerNameOptions);
-        document
-            .getElementById("manufacturerSelect")
-            ?.addEventListener("change", () =>
-                renderModelOptions(
-                    "manufacturerSelect",
-                    "modelSelect",
-                    false
-                )
-            );
-        document
-            .getElementById("manufacturerSelect2")
-            ?.addEventListener("change", () =>
-                renderModelOptions(
-                    "manufacturerSelect2",
-                    "modelSelect2",
-                    false
-                )
-            );
-        window.refreshMachineModelOptions = (record = null) => {
-            renderModelOptions(
-                "manufacturerSelect",
-                "modelSelect",
-                true,
-                record?.model_sn || null
-            );
-            renderModelOptions(
-                "manufacturerSelect2",
-                "modelSelect2",
-                true,
-                record?.model_sn_2 || null
-            );
-        };
-        window.isMasterAdmin = false;
-        window.showAdminLoginRequired = showAdminLoginRequired;
-        supabaseClient.auth.onAuthStateChange(() => {
-            setTimeout(restoreAdminSession, 0);
-        });
-        restoreAdminSession();
-        refreshInstallFormMasters();
+    if (error) {
+        console.error("모델 추가 실패:", error);
+
+        if (error.code === "23505") {
+            alert("이미 등록된 모델입니다.");
+        } else {
+            alert("모델 추가에 실패했습니다.");
+        }
+
+        return;
     }
 
-    document.addEventListener("DOMContentLoaded", init);
-}());
+    modelInput.value = "";
+
+    await loadAdminModels(
+        manufacturerName
+    );
+
+    if (typeof loadModels === "function") {
+
+        const manufacturer1 =
+            document.getElementById(
+                "manufacturerSelect"
+            )?.value;
+
+        const manufacturer2 =
+            document.getElementById(
+                "manufacturerSelect2"
+            )?.value;
+
+        if (manufacturer1 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList"
+            );
+        }
+
+        if (manufacturer2 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList2"
+            );
+        }
+    }
+
+    alert("모델이 추가되었습니다.");
+}
+window.moveModel = async function (
+    id,
+    currentOrder,
+    direction
+) {
+
+    const manufacturerName =
+        document.getElementById(
+            "adminModelManufacturer"
+        )?.value;
+
+    if (!manufacturerName) {
+        alert("제조사를 선택하세요.");
+        return;
+    }
+
+    const targetOrder =
+        currentOrder + direction;
+
+    if (targetOrder < 1) {
+        return;
+    }
+
+    const { data: manufacturer, error: manufacturerError } =
+        await supabaseClient
+            .from("master_manufacturers")
+            .select("id")
+            .eq("name", manufacturerName)
+            .single();
+
+    if (manufacturerError || !manufacturer) {
+        console.error(
+            "제조사 조회 실패:",
+            manufacturerError
+        );
+
+        return;
+    }
+
+    const { data: targetModels, error: targetError } =
+        await supabaseClient
+            .from("master_models")
+            .select("id, sort_order")
+            .eq(
+                "manufacturer_id",
+                manufacturer.id
+            )
+            .eq("sort_order", targetOrder)
+            .limit(1);
+
+    if (targetError) {
+        console.error(
+            "이동 대상 모델 조회 실패:",
+            targetError
+        );
+
+        return;
+    }
+
+    const targetModel =
+        targetModels?.[0];
+
+    if (!targetModel) {
+        return;
+    }
+
+    const temporaryOrder = -1;
+
+    const { error: tempError } =
+        await supabaseClient
+            .from("master_models")
+            .update({
+                sort_order: temporaryOrder
+            })
+            .eq("id", id);
+
+    if (tempError) {
+        console.error(
+            "현재 모델 임시 이동 실패:",
+            tempError
+        );
+
+        return;
+    }
+
+    const { error: targetUpdateError } =
+        await supabaseClient
+            .from("master_models")
+            .update({
+                sort_order: currentOrder
+            })
+            .eq("id", targetModel.id);
+
+    if (targetUpdateError) {
+        console.error(
+            "대상 모델 순서 변경 실패:",
+            targetUpdateError
+        );
+
+        return;
+    }
+
+    const { error: currentUpdateError } =
+        await supabaseClient
+            .from("master_models")
+            .update({
+                sort_order: targetOrder
+            })
+            .eq("id", id);
+
+    if (currentUpdateError) {
+        console.error(
+            "현재 모델 순서 변경 실패:",
+            currentUpdateError
+        );
+
+        return;
+    }
+
+    await loadAdminModels(
+        manufacturerName
+    );
+
+    if (typeof loadModels === "function") {
+
+        const manufacturer1 =
+            document.getElementById(
+                "manufacturerSelect"
+            )?.value;
+
+        const manufacturer2 =
+            document.getElementById(
+                "manufacturerSelect2"
+            )?.value;
+
+        if (manufacturer1 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList"
+            );
+        }
+
+        if (manufacturer2 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList2"
+            );
+        }
+    }
+};
+window.editModel = async function (id) {
+
+    const manufacturerName =
+        document.getElementById(
+            "adminModelManufacturer"
+        )?.value;
+
+    if (!manufacturerName) {
+        alert("제조사를 선택하세요.");
+        return;
+    }
+
+    const { data: model, error: readError } =
+        await supabaseClient
+            .from("master_models")
+            .select("name")
+            .eq("id", id)
+            .single();
+
+    if (readError || !model) {
+        console.error(
+            "모델 조회 실패:",
+            readError
+        );
+
+        alert("모델 정보를 불러오지 못했습니다.");
+        return;
+    }
+
+    const newName = prompt(
+        "수정할 모델명을 입력하세요.",
+        model.name
+    );
+
+    if (newName === null) {
+        return;
+    }
+
+    const trimmedName =
+        newName.trim();
+
+    if (!trimmedName) {
+        alert("모델명을 입력하세요.");
+        return;
+    }
+
+    if (trimmedName === model.name) {
+        return;
+    }
+
+    const { error: updateError } =
+        await supabaseClient
+            .from("master_models")
+            .update({
+                name: trimmedName
+            })
+            .eq("id", id);
+
+    if (updateError) {
+        console.error(
+            "모델 수정 실패:",
+            updateError
+        );
+
+        if (updateError.code === "23505") {
+            alert("같은 제조사에 이미 등록된 모델명입니다.");
+        } else {
+            alert("모델 수정에 실패했습니다.");
+        }
+
+        return;
+    }
+
+    await loadAdminModels(
+        manufacturerName
+    );
+
+    if (typeof loadModels === "function") {
+
+        const manufacturer1 =
+            document.getElementById(
+                "manufacturerSelect"
+            )?.value;
+
+        const manufacturer2 =
+            document.getElementById(
+                "manufacturerSelect2"
+            )?.value;
+
+        if (manufacturer1 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList"
+            );
+        }
+
+        if (manufacturer2 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList2"
+            );
+        }
+    }
+
+    alert("모델명이 수정되었습니다.");
+};
+window.toggleModelActive =
+async function (id, currentActive) {
+
+    const manufacturerName =
+        document.getElementById(
+            "adminModelManufacturer"
+        )?.value;
+
+    if (!manufacturerName) {
+        alert("제조사를 선택하세요.");
+        return;
+    }
+
+    const { error } =
+        await supabaseClient
+            .from("master_models")
+            .update({
+                active: !currentActive
+            })
+            .eq("id", id);
+
+    if (error) {
+        console.error("모델 활성화 변경 실패:", error);
+        alert("상태 변경에 실패했습니다.");
+        return;
+    }
+
+    await loadAdminModels(manufacturerName);
+
+    if (typeof loadModels === "function") {
+
+        const manufacturer1 =
+            document.getElementById("manufacturerSelect")?.value;
+
+        const manufacturer2 =
+            document.getElementById("manufacturerSelect2")?.value;
+
+        if (manufacturer1 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList"
+            );
+        }
+
+        if (manufacturer2 === manufacturerName) {
+            await loadModels(
+                manufacturerName,
+                "modelList2"
+            );
+        }
+    }
+
+};
+
+window.deleteInstaller = async function (id) {
+    if (!await deleteMasterItem(MASTER_CONFIG.installers, id)) return;
+    await loadAdminInstallers();
+    if (typeof loadInstallers === "function") await loadInstallers();
+};
+
+window.deleteDealer = async function (id) {
+    if (!await deleteMasterItem(MASTER_CONFIG.dealers, id)) return;
+    await loadAdminDealers();
+    if (typeof loadDealers === "function") await loadDealers();
+};
+
+window.deleteManufacturer = async function (id) {
+    if (!await deleteMasterItem(MASTER_CONFIG.manufacturers, id)) return;
+    await loadAdminManufacturers();
+    if (typeof loadManufacturers === "function") await loadManufacturers();
+};
+
+window.deleteModel = async function (id) {
+    const manufacturerName =
+        document.getElementById("adminModelManufacturer")?.value;
+    const config = { table: "master_models", title: "모델" };
+    if (!await deleteMasterItem(config, id)) return;
+    await loadAdminModels(manufacturerName);
+
+    if (typeof loadModels === "function") {
+        const manufacturer1 =
+            document.getElementById("manufacturerSelect")?.value;
+        const manufacturer2 =
+            document.getElementById("manufacturerSelect2")?.value;
+        if (manufacturer1 === manufacturerName) {
+            await loadModels(manufacturerName, "modelList");
+        }
+        if (manufacturer2 === manufacturerName) {
+            await loadModels(manufacturerName, "modelList2");
+        }
+    }
+};
