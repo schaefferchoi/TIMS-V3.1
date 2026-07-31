@@ -17,13 +17,14 @@ Deno.serve(async (req) => {
       pageId = null,
     } = await req.json();
 
+    const confluenceUrl = validateConfluenceUrl(url);
     const auth = btoa(`${email}:${token}`);
 
     const templateId = "2320893193";
     const parentPageId = "1048543457";
 
     const templateHtml = await buildTemplateHtml({
-      url,
+      url: confluenceUrl,
       auth,
       templateId,
       data,
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
 
     if (pageId) {
       result = await updateConfluencePage({
-        url,
+        url: confluenceUrl,
         auth,
         pageId,
         title,
@@ -42,7 +43,7 @@ Deno.serve(async (req) => {
       });
     } else {
       result = await createConfluencePage({
-        url,
+        url: confluenceUrl,
         auth,
         space,
         parentPageId,
@@ -276,6 +277,36 @@ function escapeAttr(value: unknown) {
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
+}
+
+function validateConfluenceUrl(value: unknown) {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(String(value || ""));
+  } catch {
+    throw new Error("Invalid Confluence URL");
+  }
+
+  const configuredHosts = (Deno.env.get("CONFLUENCE_ALLOWED_HOSTS") || "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  const hostname = parsed.hostname.toLowerCase();
+  const isAtlassianCloud =
+    hostname === "atlassian.net" || hostname.endsWith(".atlassian.net");
+  const isConfiguredHost = configuredHosts.includes(hostname);
+
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.username ||
+    parsed.password ||
+    (!isAtlassianCloud && !isConfiguredHost)
+  ) {
+    throw new Error("Confluence host is not allowed");
+  }
+
+  return parsed.origin;
 }
 
 function corsHeaders() {
