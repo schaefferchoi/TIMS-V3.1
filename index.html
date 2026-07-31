@@ -849,150 +849,74 @@ class="primary">
 </div>
 </section>
 <section id="adminTab" class="page hidden">
-
-    <div class="card">
-
-        <h2>관리자</h2>
-        <p>마스터 데이터를 관리합니다.</p>
-
-        <hr>
-
-        <h3>장착직원 관리</h3>
-
-        <div class="admin-input-row">
-
-            <input
-                id="newInstallerName"
-                type="text"
-                placeholder="직원명을 입력하세요">
-
-            <button
-                id="addInstallerBtn"
-                class="primary">
-
-                직원 추가
-
-            </button>
-
-        </div>
-
-        <div id="adminInstallerList">
-
-            불러오는 중...
-
-        </div>
-
-    </div>
-<div class="card admin-card">
-
-    <h3>거래처 유형 관리</h3>
-
-    <div class="admin-input-row">
-
-        <input
-            id="newDealerName"
-            type="text"
-            placeholder="거래처 유형을 입력하세요">
-
-        <button
-            type="button"
-            id="addDealerBtn"
-            class="primary">
-
-            거래처 유형 추가
-
-        </button>
-
+  <div class="card master-card">
+    <div class="master-header">
+      <div>
+        <h2>마스터 관리</h2>
+        <p>장착직원, 거래처, 제조사 및 모델의 노출 여부와 표시 순서를 관리합니다.</p>
+      </div>
+      <button type="button" id="refreshMasterBtn" class="secondary">새로고침</button>
     </div>
 
-    <div id="adminDealerList">
-
-        불러오는 중...
-
+    <div class="master-tabs" role="tablist" aria-label="마스터 관리 항목">
+      <button type="button" class="master-tab active" data-master-panel="installers">장착직원</button>
+      <button type="button" class="master-tab" data-master-panel="dealerTypes">거래처 유형</button>
+      <button type="button" class="master-tab" data-master-panel="dealerCompanies">거래처명</button>
+      <button type="button" class="master-tab" data-master-panel="manufacturers">제조사</button>
+      <button type="button" class="master-tab" data-master-panel="models">모델</button>
     </div>
 
-</div>
-<section class="admin-card">
+    <section class="master-panel active" data-master-panel-content="installers">
+      <label for="newInstallerName">장착직원명</label>
+      <div class="admin-input-row">
+        <input id="newInstallerName" type="text" placeholder="직원명을 입력하세요">
+        <button type="button" id="addInstallerBtn" class="primary">추가</button>
+      </div>
+      <div id="adminInstallerList">불러오는 중...</div>
+    </section>
 
-    <h3>거래처명 관리</h3>
+    <section class="master-panel" data-master-panel-content="dealerTypes">
+      <label for="newDealerName">거래처 유형명</label>
+      <div class="admin-input-row">
+        <input id="newDealerName" type="text" placeholder="거래처 유형을 입력하세요">
+        <button type="button" id="addDealerBtn" class="primary">추가</button>
+      </div>
+      <div id="adminDealerList">불러오는 중...</div>
+    </section>
 
-    <div class="admin-form-row">
-
+    <section class="master-panel" data-master-panel-content="dealerCompanies">
+      <label for="newDealerCompany">거래처명</label>
+      <div class="admin-form-row">
         <select id="adminDealerType">
-            <option value="">거래처 유형 선택</option>
+          <option value="">거래처 유형 선택</option>
         </select>
+        <input type="text" id="newDealerCompany" placeholder="거래처명을 입력하세요">
+        <button type="button" id="addDealerCompanyBtn" class="primary">추가</button>
+      </div>
+      <div id="adminDealerCompanyList"></div>
+    </section>
 
-        <input
-            type="text"
-            id="newDealerCompany"
-            placeholder="거래처명을 입력하세요"
-        >
+    <section class="master-panel" data-master-panel-content="manufacturers">
+      <label for="newManufacturerName">제조사명</label>
+      <div class="admin-input-row">
+        <input id="newManufacturerName" type="text" placeholder="제조사명을 입력하세요">
+        <button type="button" id="addManufacturerBtn" class="primary">추가</button>
+      </div>
+      <div id="adminManufacturerList">불러오는 중...</div>
+    </section>
 
-        <button id="addDealerCompanyBtn">
-            거래처 추가
-        </button>
-
-    </div>
-
-    <div id="adminDealerCompanyList"></div>
-
-</section>
-<div class="card admin-card">
-
-    <h3>제조사 관리</h3>
-
-    <div class="admin-input-row">
-
-        <input
-            id="newManufacturerName"
-            type="text"
-            placeholder="제조사명을 입력하세요">
-
-        <button
-            type="button"
-            id="addManufacturerBtn"
-            class="primary">
-
-            제조사 추가
-
-        </button>
-
-    </div>
-
-    <div id="adminManufacturerList">
-
-        불러오는 중...
-
-    </div>
-  <div class="card admin-card">
-
-    <h3>모델 관리</h3>
-
-    <div class="admin-input-row">
-
+    <section class="master-panel" data-master-panel-content="models">
+      <label for="adminModelManufacturer">제조사 및 모델명</label>
+      <div class="admin-form-row">
         <select id="adminModelManufacturer">
-            <option value="">제조사 선택</option>
+          <option value="">제조사 선택</option>
         </select>
-
-        <input
-            id="newModelName"
-            type="text"
-            placeholder="모델명을 입력하세요">
-
-        <button
-            type="button"
-            id="addModelBtn"
-            class="primary">
-            모델 추가
-        </button>
-
-    </div>
-
-    <div id="adminModelList">
-        제조사를 선택하세요.
-    </div>
-
-</div>
+        <input id="newModelName" type="text" placeholder="모델명을 입력하세요">
+        <button type="button" id="addModelBtn" class="primary">추가</button>
+      </div>
+      <div id="adminModelList">제조사를 선택하세요.</div>
+    </section>
+  </div>
 </section>
   </main>
 
@@ -1085,7 +1009,7 @@ class="primary">
 </div>
 <!-- 관리자 로그인 모달 -->
 <div id="loginModal" class="login-modal hidden">
-    <div class="login-dialog">
+    <form id="adminLoginForm" class="login-dialog">
 
         <h2>관리자 로그인</h2>
 
@@ -1107,7 +1031,7 @@ class="primary">
 
         <div class="login-buttons">
             <button
-                type="button"
+                type="submit"
                 id="adminLoginBtn"
                 class="primary">
                 로그인
@@ -1120,7 +1044,7 @@ class="primary">
             </button>
         </div>
 
-    </div>
+    </form>
 </div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

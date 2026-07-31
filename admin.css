@@ -200,3 +200,123 @@
     flex:1;
     min-width:200px;
 }
+
+/* 마스터 관리 단일 카드 / 탭 */
+.master-card {
+    padding: 24px;
+    border-radius: 18px;
+}
+
+.master-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.master-header h2 {
+    margin: 0 0 6px;
+}
+
+.master-header p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+}
+
+.master-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0 0;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #dbe3ed;
+}
+
+.master-tab {
+    padding: 10px 13px;
+    border: 0;
+    border-radius: 12px;
+    color: #123f73;
+    background: #e9eff6;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.master-tab.active {
+    color: #ffffff;
+    background: #123f73;
+}
+
+.master-panel {
+    display: none;
+    padding-top: 18px;
+}
+
+.master-panel.active {
+    display: block;
+}
+
+.master-panel > label {
+    display: block;
+    margin-bottom: 4px;
+    color: #25364b;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.master-panel .admin-input-row,
+.master-panel .admin-form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 28px;
+}
+
+.master-panel .admin-input-row input,
+.master-panel .admin-form-row input,
+.master-panel .admin-form-row select {
+    min-width: 0;
+    min-height: 44px;
+}
+
+.master-panel .admin-form-row select {
+    flex: 0 1 260px;
+}
+
+.master-panel .admin-form-row input {
+    flex: 1;
+}
+
+.master-panel .primary {
+    flex: 0 0 auto;
+}
+
+.admin-actions .danger {
+    color: #dc2626;
+    border-color: #fecaca;
+    background: #fff5f5;
+}
+
+@media (max-width: 720px) {
+    .master-card {
+        padding: 18px 14px;
+    }
+
+    .master-header {
+        align-items: center;
+    }
+
+    .master-panel .admin-input-row,
+    .master-panel .admin-form-row {
+        flex-direction: column;
+    }
+
+    .master-panel .admin-form-row select {
+        flex-basis: auto;
+        width: 100%;
+    }
+
+    .admin-col-actions {
+        width: 260px;
+    }
+}

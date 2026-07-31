@@ -2740,8 +2740,11 @@ async function handleAdminLogin() {
 }
 
 document
-    .getElementById("adminLoginBtn")
-    .addEventListener("click", handleAdminLogin);
+    .getElementById("adminLoginForm")
+    .addEventListener("submit", (event) => {
+        event.preventDefault();
+        handleAdminLogin();
+    });
 function showAdminTab() {
     const adminTabButton = document.querySelector('[data-tab="admin"]');
 

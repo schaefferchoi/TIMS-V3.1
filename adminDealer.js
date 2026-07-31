@@ -5,6 +5,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document
         .getElementById("addDealerCompanyBtn")
         ?.addEventListener("click", addDealerCompany);
+
+    document
+        .getElementById("adminDealerType")
+        ?.addEventListener("change", (event) => {
+            loadAdminDealerCompanies(event.target.value);
+        });
 });
 
 
@@ -30,7 +36,7 @@ async function loadAdminDealerTypeSelect() {
     (data || []).forEach(item => {
         select.innerHTML += `
             <option value="${item.id}">
-                ${item.name}
+                ${escapeHtml(item.name)}
             </option>
         `;
     });
@@ -119,12 +125,23 @@ async function addDealerCompany() {
 }
 
 
-async function loadAdminDealerCompanies() {
+async function loadAdminDealerCompanies(selectedDealerTypeId) {
 
     const target =
         document.getElementById("adminDealerCompanyList");
 
     if (!target) return;
+
+    const dealerTypeId = Number(
+        selectedDealerTypeId ||
+        document.getElementById("adminDealerType")?.value
+    );
+
+    if (!dealerTypeId) {
+        target.innerHTML =
+            `<p class="empty">거래처 유형을 선택하세요.</p>`;
+        return;
+    }
 
     const { data, error } = await supabaseClient
         .from("master_dealers")
@@ -138,8 +155,7 @@ async function loadAdminDealerCompanies() {
                 name
             )
         `)
-        .not("dealer_type_id", "is", null)
-        .order("dealer_type_id", { ascending: true })
+        .eq("dealer_type_id", dealerTypeId)
         .order("sort_order", { ascending: true });
 
     if (error) {
@@ -165,8 +181,7 @@ async function loadAdminDealerCompanies() {
                 <thead>
                     <tr>
                         <th class="admin-col-order">순서</th>
-                        <th>거래처 유형</th>
-                        <th>거래처명</th>
+                        <th>이름</th>
                         <th class="admin-col-status">상태</th>
                         <th class="admin-col-actions">관리</th>
                     </tr>
@@ -214,12 +229,6 @@ async function loadAdminDealerCompanies() {
                                     </button>
 
                                 </div>
-                            </td>
-
-                            <td>
-                                ${escapeHtml(
-                                    dealer.master_dealer_types?.name || "-"
-                                )}
                             </td>
 
                             <td class="admin-name-cell">

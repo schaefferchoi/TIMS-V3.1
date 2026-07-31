@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadAdminInstallers();
     loadAdminDealers();
-    loadAdminDealerTypeSelect();
     loadAdminManufacturers();
     loadAdminManufacturerSelect();
 
@@ -50,9 +49,40 @@ document.addEventListener("DOMContentLoaded", () => {
     document
     .getElementById("addManufacturerBtn")
     ?.addEventListener("click", addManufacturer);
+    document.querySelectorAll(".master-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+            const panelName = tab.dataset.masterPanel;
+
+            document.querySelectorAll(".master-tab").forEach((item) => {
+                item.classList.toggle("active", item === tab);
+            });
+
+            document.querySelectorAll(".master-panel").forEach((panel) => {
+                panel.classList.toggle(
+                    "active",
+                    panel.dataset.masterPanelContent === panelName
+                );
+            });
+        });
+    });
+
     document
-    .getElementById("addDealerCompanyBtn")
-    ?.addEventListener("click", addDealerCompany);
+        .getElementById("refreshMasterBtn")
+        ?.addEventListener("click", async () => {
+            await Promise.all([
+                loadAdminInstallers(),
+                loadAdminDealers(),
+                loadAdminManufacturers(),
+                loadAdminManufacturerSelect()
+            ]);
+
+            await loadAdminDealerTypeSelect();
+            await loadAdminDealerCompanies();
+
+            const manufacturer =
+                document.getElementById("adminModelManufacturer")?.value;
+            if (manufacturer) await loadAdminModels(manufacturer);
+        });
 });
 
 async function loadAdminInstallers() {
