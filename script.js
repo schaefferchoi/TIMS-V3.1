@@ -1062,19 +1062,7 @@ function fillForm(record) {
     toggleMachineSection();
 
     // 장착직원 버튼 상태 복원
-    const selectedInstallers = String(record.installer || "")
-        .split(",")
-        .map(name => name.trim())
-        .filter(Boolean);
-
-    document
-        .querySelectorAll("#installerButtons button")
-        .forEach(button => {
-            button.classList.toggle(
-                "active",
-                selectedInstallers.includes(button.dataset.name)
-            );
-        });
+    setInstallerSelection(record.installer);
 }
 async function deleteRecord(id) {
     console.log("삭제 시도 id:", id);
@@ -1541,12 +1529,36 @@ console.log("IMPORT RESULT:", result);
 console.log("ATTACHMENTS:", result.attachments);
 
 const usedAttachmentNames = [
-    ...result.html.matchAll(/ri:filename="([^"]+)"/g)
-].map(match => match[1]);
+    ...new Set([
+        ...[...result.html.matchAll(/ri:filename=["']([^"']+)["']/g)]
+            .map(match => match[1]),
+        ...[...result.html.matchAll(
+            /data-linked-resource-default-alias=["']([^"']+)["']/g
+        )].map(match => match[1])
+    ])
+];
 
-const usedAttachments = (result.attachments || []).filter(attachment =>
-    usedAttachmentNames.includes(attachment.filename)
+const attachmentByName = new Map(
+    (result.attachments || []).map(attachment => [
+        attachment.filename,
+        attachment
+    ])
 );
+
+const candidateAttachmentNames = usedAttachmentNames.length > 0
+    ? usedAttachmentNames
+    : [...attachmentByName.keys()];
+
+const usedAttachments = candidateAttachmentNames.map(filename =>
+        attachmentByName.get(filename) || {
+            filename,
+            mediaType: "image/jpeg",
+            fileSize: null,
+            downloadPath:
+                `/download/attachments/${pageId}/${encodeURIComponent(filename)}`
+        }
+    )
+    .filter(attachment => attachment.downloadPath);
 
 console.log("USED ATTACHMENTS:", usedAttachments);
 
@@ -1556,9 +1568,26 @@ console.log(data);
 
 const photoMap = parseConfluencePhotos(result.html);
 
+const mappedPhotoCount = Object.values(photoMap)
+    .reduce((sum, filenames) => sum + filenames.length, 0);
+
+if (mappedPhotoCount === 0 && usedAttachments.length > 0) {
+    photoMap.install = usedAttachments.map(attachment => attachment.filename);
+}
+
 console.log(photoMap);
 
 console.log(result.html.match(/ri:attachment[\s\S]{0,300}/g));
+
+const photoImportResult = await importConfluencePhotos({
+    attachments: usedAttachments,
+    photoMap,
+    url,
+    email,
+    token
+});
+photoImportResult.references = usedAttachmentNames.length;
+photoImportResult.candidates = usedAttachments.length;
 
 const form = document.getElementById("installForm");
 
@@ -1600,6 +1629,10 @@ Object.entries(importMap).forEach(([fieldName, labels]) => {
     }
 });
 
+setInstallerSelection(
+    getConfluenceValue(data, ["장착 직원", "장착직원", "작업자"])
+);
+
 const dealerTypeName = getConfluenceValue(
     data,
     ["거래처 유형", "거래처유형", "딜러 유형", "딜러유형"]
@@ -1627,7 +1660,23 @@ if (dealerName) {
 
     hideImportModal();
 
-    alert("Confluence 페이지를 성공적으로 가져왔습니다.");
+    const photoMessage = photoImportResult.imported > 0
+        ? `\n사진 ${photoImportResult.imported}장을 가져왔습니다.`
+        : (
+            "\n가져올 사진이 없습니다." +
+            `\n본문 참조 ${photoImportResult.references}개, ` +
+            `첨부 후보 ${photoImportResult.candidates}개`
+        );
+
+    const failedMessage = photoImportResult.failed > 0
+        ? `\n사진 ${photoImportResult.failed}장은 가져오지 못했습니다.`
+        : "";
+
+    alert(
+        "Confluence 페이지를 성공적으로 가져왔습니다." +
+        photoMessage +
+        failedMessage
+    );
 
 }
 document
@@ -1871,6 +1920,35 @@ function setFormControlValue(control, value) {
     control.dispatchEvent(new Event("change", { bubbles: true }));
     return true;
 }
+function setInstallerSelection(value) {
+    const rawValue = String(value || "").trim();
+    const normalizedValue = rawValue.replace(/[\s,\/·]+/g, "");
+    const selectedNames = [];
+
+    document
+        .querySelectorAll("#installerButtons button")
+        .forEach(button => {
+            const installerName = String(button.dataset.name || "").trim();
+            const isSelected =
+                Boolean(installerName) &&
+                normalizedValue.includes(
+                    installerName.replace(/\s+/g, "")
+                );
+
+            button.classList.toggle("active", isSelected);
+            if (isSelected) selectedNames.push(installerName);
+        });
+
+    const installerInput = document.getElementById("installer");
+    if (installerInput) {
+        installerInput.value =
+            selectedNames.length > 0
+                ? selectedNames.join(", ")
+                : rawValue;
+    }
+
+    return selectedNames;
+}
 function parseConfluenceTable(html) {
 
     const doc = new DOMParser().parseFromString(html, "text/html");
@@ -1916,11 +1994,19 @@ function parseConfluencePhotos(html) {
     const sectionDefinitions = [
         {
             type: "install",
-            labels: ["장착사진", "장착 사진"]
+            labels: ["장착사진", "장착 사진", "전체사진", "전체 사진"]
         },
         {
             type: "vehicle",
             labels: ["차량사진", "차량 사진", "농기계사진", "농기계 사진"]
+        },
+        {
+            type: "machineNumber",
+            labels: ["농기계 기대번호", "기대번호 사진", "기대번호사진"]
+        },
+        {
+            type: "rearCamera",
+            labels: ["후방카메라 사진", "후방카메라사진"]
         },
         {
             type: "version",
@@ -1943,6 +2029,8 @@ function parseConfluencePhotos(html) {
     const result = {
         install: [],
         vehicle: [],
+        machineNumber: [],
+        rearCamera: [],
         version: [],
         eps: [],
         cpg: [],
@@ -1986,6 +2074,30 @@ function parseConfluencePhotos(html) {
             ])
         ];
     }
+
+    const filenameTypeMap = {
+        install: "install",
+        vehicle: "vehicle",
+        machinenumber: "machineNumber",
+        rearcamera: "rearCamera",
+        eps: "eps",
+        cpg: "cpg",
+        acu: "acu",
+        version: "version"
+    };
+
+    const allFilenames = [
+        ...normalizedHtml.matchAll(/ri:filename="([^"]+)"/g)
+    ].map(match => match[1]);
+
+    allFilenames.forEach(filename => {
+        const prefix = filename.match(/^([a-zA-Z]+)_/)?.[1]?.toLowerCase();
+        const photoType = filenameTypeMap[prefix];
+
+        if (photoType && !result[photoType].includes(filename)) {
+            result[photoType].push(filename);
+        }
+    });
 
     return result;
 }
@@ -2058,10 +2170,14 @@ async function importConfluencePhotos({
     const attachmentMap = new Map(
         attachments.map(item => [item.filename, item])
     );
+    let imported = 0;
+    let failed = 0;
 
     const photoTypes = [
         "install",
         "vehicle",
+        "machineNumber",
+        "rearCamera",
         "version",
         "eps",
         "cpg",
@@ -2076,6 +2192,16 @@ async function importConfluencePhotos({
 
             if (!attachment?.downloadPath) {
                 console.warn("첨부파일 정보를 찾을 수 없음:", filename);
+                failed += 1;
+                continue;
+            }
+
+            const alreadyImported = tempPhotos[photoType].some(file =>
+                file.name === filename &&
+                Number(file.size) === Number(attachment.fileSize)
+            );
+
+            if (alreadyImported) {
                 continue;
             }
 
@@ -2097,7 +2223,14 @@ async function importConfluencePhotos({
             );
 
             if (!response.ok) {
-                console.error("사진 다운로드 실패:", filename);
+                const errorText = await response.text();
+                console.error(
+                    "사진 다운로드 실패:",
+                    filename,
+                    response.status,
+                    errorText
+                );
+                failed += 1;
                 continue;
             }
 
@@ -2115,12 +2248,14 @@ async function importConfluencePhotos({
             );
 
             tempPhotos[photoType].push(file);
+            imported += 1;
         }
 
         renderTempPhotos(photoType);
     }
 
     console.log("Confluence 사진 가져오기 완료:", tempPhotos);
+    return { imported, failed };
 }
 // =============================
 // 제품명에 따라 농기계2 표시

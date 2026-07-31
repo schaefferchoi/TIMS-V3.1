@@ -249,13 +249,19 @@
            </select>
           </label>
           <label>브라켓
-            <select name="bracket">
-              <option value="">선택</option>
-              <option value="범용">범용</option>
-              <option value="밀착형(3점고정)">밀착형(3점고정)</option>
-              <option value="핀 타입1">핀 타입1</option>
-              <option value="PRJ전용">PRJ전용</option>
-            </select>
+            <input
+              name="bracket"
+              list="bracketList"
+              placeholder="선택 또는 직접 입력"
+              autocomplete="off"
+            />
+            <datalist id="bracketList">
+              <option value="범용"></option>
+              <option value="범용 브라켓"></option>
+              <option value="밀착형(3점고정)"></option>
+              <option value="핀 타입1"></option>
+              <option value="PRJ전용"></option>
+            </datalist>
           </label>
           <label>후방카메라
             <select name="rear_camera">
