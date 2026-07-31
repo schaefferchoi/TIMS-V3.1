@@ -191,6 +191,17 @@ function collectFormData() {
 
         return Number.isNaN(number) ? null : number;
     };
+
+    const dealerNameInput =
+        document.getElementById("dealerName");
+    const dealerName =
+        String(dealerNameInput?.value || "").trim();
+    const dealerOption = [
+        ...document.querySelectorAll("#dealerNameList option")
+    ].find(option => option.value === dealerName);
+    const dealerId = toNullableInteger(
+        dealerOption?.dataset.id
+    );
     console.log("record 생성 직전:", {
         dealer_type_id: formData.get("dealer_type_id"),
         dealer_id: formData.get("dealer_id")
@@ -216,10 +227,7 @@ function collectFormData() {
             formData.get("sales_type") || null,
 
         dealer_name:
-            document.getElementById("dealerName")
-                ?.selectedOptions[0]
-                ?.textContent
-                ?.trim() || null,
+            dealerName || null,
 
         dealer_type_id:
             formData.get("dealer_type_id")
@@ -227,9 +235,7 @@ function collectFormData() {
                 : null,
 
         dealer_id:
-            formData.get("dealer_id")
-                ? Number(formData.get("dealer_id"))
-                : null,
+            dealerId,
 
 representative:
     formData.get("representative") || null,
@@ -1546,40 +1552,67 @@ console.log(result.html.match(/ri:attachment[\s\S]{0,300}/g));
 const form = document.getElementById("installForm");
 
 const importMap = {
-    product_name: "품명",
-    box_sn: "BOX S/N",
-    keypad_sn: "KEYPAD S/N",
-    dealer_name: "딜러점(지역)",
-    representative: "대표",
-    install_subject: "장착 주체",
-    installer: "장착 직원",
-    spline: "스플라인",
-    bracket: "브라켓",
-
-    machine_type: "기종",
-    manufacturer: "제조사",
-    model_sn: "모델명 (S/N)",
-    customer_name: "고객명",
-    customer_phone: "연락처",
-    customer_address: "주소",
-    education_date: "교육 일자",
-    education_staff: "교육 직원",
-    farm_scale: "농사 규모",
-    main_crop: "주요 작물"
+    install_date: ["장착일자", "장착 일자", "장착일"],
+    sales_type: ["판매구분", "판매 구분"],
+    product_name: ["품명", "제품명"],
+    box_sn: ["BOX S/N", "BOX SN"],
+    keypad_sn: ["KEYPAD S/N", "KEYPAD SN"],
+    representative: ["대표자", "대표"],
+    install_subject: ["장착 주체", "장착주체"],
+    installer: ["장착 직원", "장착직원"],
+    spline: ["스플라인"],
+    bracket: ["브라켓"],
+    machine_type: ["기종"],
+    manufacturer: ["제조사"],
+    model_sn: ["모델명 (S/N)", "모델명", "모델"],
+    customer_name: ["고객명"],
+    customer_phone: ["연락처", "전화번호"],
+    customer_address: ["주소"],
+    education_date: ["교육 일자", "교육일자"],
+    education_staff: ["교육 직원", "교육직원"],
+    farm_scale: ["농사 규모", "농사규모"],
+    main_crop: ["주요 작물", "주요작물"]
 };
 
-Object.entries(importMap).forEach(([fieldName, label]) => {
+Object.entries(importMap).forEach(([fieldName, labels]) => {
     const input = form.elements[fieldName];
     if (!input) return;
 
-    const value = data[label] || "";
+    let value = getConfluenceValue(data, labels);
 
-console.log(fieldName, label, "=>", value);
+    if (fieldName === "install_date") {
+        value = normalizeImportedDate(value);
+    }
 
-if (value) {
-    input.value = value;
-}
+    if (value) {
+        setFormControlValue(input, value);
+    }
 });
+
+const dealerTypeName = getConfluenceValue(
+    data,
+    ["거래처 유형", "거래처유형", "딜러 유형", "딜러유형"]
+);
+const dealerName = getConfluenceValue(
+    data,
+    ["거래처명", "거래처 명", "딜러점(지역)", "딜러점", "대리점"]
+);
+
+if (dealerTypeName) {
+    await loadDealers();
+
+    const dealerTypeSelect = form.elements.dealer_type_id;
+    setFormControlValue(dealerTypeSelect, dealerTypeName);
+
+    if (dealerTypeSelect.value) {
+        await loadDealerNames(dealerTypeSelect.value);
+    }
+}
+
+if (dealerName) {
+    const dealerNameInput = document.getElementById("dealerName");
+    if (dealerNameInput) dealerNameInput.value = dealerName;
+}
 
     hideImportModal();
 
@@ -1770,6 +1803,62 @@ function findValue(doc, label) {
     }
 
     return "";
+}
+function normalizeConfluenceLabel(value) {
+    return String(value || "")
+        .replace(/\s+/g, "")
+        .replace(/[：:]/g, "")
+        .trim()
+        .toLowerCase();
+}
+function getConfluenceValue(data, labels) {
+    const normalizedEntries = Object.entries(data || {}).map(
+        ([key, value]) => [normalizeConfluenceLabel(key), String(value || "").trim()]
+    );
+
+    for (const label of labels) {
+        const normalizedLabel = normalizeConfluenceLabel(label);
+        const match = normalizedEntries.find(([key]) => key === normalizedLabel);
+        if (match?.[1]) return match[1];
+    }
+
+    return "";
+}
+function normalizeImportedDate(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+
+    const match = text.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    if (!match) return text;
+
+    return [
+        match[1],
+        match[2].padStart(2, "0"),
+        match[3].padStart(2, "0")
+    ].join("-");
+}
+function setFormControlValue(control, value) {
+    if (!control || !value) return false;
+
+    if (control.tagName !== "SELECT") {
+        control.value = value;
+        return true;
+    }
+
+    const normalizedValue = normalizeConfluenceLabel(value);
+    const option = [...control.options].find(item =>
+        normalizeConfluenceLabel(item.value) === normalizedValue ||
+        normalizeConfluenceLabel(item.textContent) === normalizedValue
+    );
+
+    if (!option) {
+        console.warn("가져온 선택값을 찾을 수 없습니다:", value);
+        return false;
+    }
+
+    control.value = option.value;
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+    return true;
 }
 function parseConfluenceTable(html) {
 
@@ -2544,7 +2633,9 @@ async function loadDealerNames(typeId) {
     data.forEach(item => {
 
     dealerList.innerHTML += `
-        <option value="${item.dealer_name}">
+        <option
+            value="${escapeHtml(item.dealer_name)}"
+            data-id="${item.id}">
     `;
 
     });
