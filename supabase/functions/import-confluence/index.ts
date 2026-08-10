@@ -13,7 +13,8 @@ Deno.serve(async (req) => {
             token,
             pageId,
             attachmentId,
-            downloadPath
+            downloadPath,
+            pageUrl
         } = await req.json();
 
         if (!url || !email || !token) {
@@ -22,6 +23,39 @@ Deno.serve(async (req) => {
 
         const baseUrl = normalizeConfluenceBaseUrl(url);
         const auth = btoa(`${email}:${token}`);
+
+        if (action === "resolve") {
+            const targetUrl = normalizeConfluencePageUrl(baseUrl, pageUrl);
+            const pageResponse = await fetch(targetUrl, {
+                method: "GET",
+                headers: {
+                    Authorization: `Basic ${auth}`,
+                    Accept: "text/html,application/xhtml+xml"
+                },
+                redirect: "follow"
+            });
+
+            if (!pageResponse.ok) {
+                return jsonResponse({
+                    error: "Confluence 페이지 URL 확인 실패",
+                    status: pageResponse.status
+                }, pageResponse.status);
+            }
+
+            const resolvedUrl = pageResponse.url;
+            const resolvedPageId = extractConfluencePageId(resolvedUrl);
+
+            if (!resolvedPageId) {
+                return jsonResponse({
+                    error: "Confluence URL에서 Page ID를 찾을 수 없습니다."
+                }, 400);
+            }
+
+            return jsonResponse({
+                pageId: resolvedPageId,
+                url: resolvedUrl
+            });
+        }
 
         if (action === "download") {
             if (!attachmentId && !downloadPath) {
@@ -200,6 +234,34 @@ function buildAttachmentDownloadUrl(
     return `${baseUrl}/wiki/rest/api/content/` +
         `${encodeURIComponent(safePageId)}/child/attachment/` +
         `${encodeURIComponent(safeAttachmentId)}/download`;
+}
+
+function normalizeConfluencePageUrl(baseUrl: string, pageUrl: string) {
+    let candidate: URL;
+
+    try {
+        candidate = new URL(String(pageUrl || "").trim());
+    } catch {
+        throw new Error("올바른 Confluence 페이지 URL이 아닙니다.");
+    }
+
+    if (candidate.origin !== new URL(baseUrl).origin) {
+        throw new Error("설정된 Confluence 사이트와 다른 URL입니다.");
+    }
+
+    if (!candidate.pathname.startsWith("/wiki/")) {
+        throw new Error("허용되지 않은 Confluence 페이지 URL입니다.");
+    }
+
+    return candidate.toString();
+}
+
+function extractConfluencePageId(pageUrl: string) {
+    const match =
+        pageUrl.match(/[?&]pageId=(\d+)/) ||
+        pageUrl.match(/\/pages\/(\d+)(?:\/|$)/);
+
+    return match?.[1] || null;
 }
 
 function jsonResponse(data: unknown, status = 200) {

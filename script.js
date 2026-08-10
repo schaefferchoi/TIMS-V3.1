@@ -1392,9 +1392,11 @@ async function openConfluence() {
     window.open(data.confluence_page_url, "_blank");
 }
 
-async function linkConfluence() {
+async function linkConfluence(recordIdOverride = null) {
 
-    const recordId = document.getElementById("recordId").value;
+    const recordId = typeof recordIdOverride === "string"
+        ? recordIdOverride
+        : document.getElementById("recordId").value;
 
     if (!recordId) {
         alert("먼저 저장된 장착기록을 선택하세요.");
@@ -1421,6 +1423,46 @@ async function linkConfluence() {
 
         if (match) {
             pageId = match[1];
+        } else {
+            const url = localStorage.getItem("confUrl");
+            const email = localStorage.getItem("confEmail");
+            const token = localStorage.getItem("confToken");
+
+            if (!url || !email || !token) {
+                alert(
+                    "Confluence 단축 URL을 확인할 설정값이 없습니다.\n\n" +
+                    "설정 탭에서 URL, 이메일, API Token을 저장하세요."
+                );
+                return false;
+            }
+
+            const response = await fetch(
+                "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/import-confluence",
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        action: "resolve",
+                        url,
+                        email,
+                        token,
+                        pageUrl: input
+                    })
+                }
+            );
+            const result = await response.json();
+
+            if (!response.ok || !result.pageId) {
+                console.error("Confluence URL 해석 실패:", result);
+                alert(
+                    "Confluence Page ID를 확인할 수 없습니다.\n\n" +
+                    (result.error || `HTTP ${response.status}`)
+                );
+                return false;
+            }
+
+            pageId = result.pageId;
+            pageUrl = result.url || input;
         }
 
     } else {
@@ -1435,7 +1477,7 @@ async function linkConfluence() {
 
     if (!pageId) {
         alert("Page ID를 찾을 수 없습니다.");
-        return;
+        return false;
     }
 
     const { error } = await supabaseClient
@@ -1451,10 +1493,11 @@ async function linkConfluence() {
     if (error) {
         console.error(error);
         alert("Confluence 연결 실패");
-        return;
+        return false;
     }
 
     alert("Confluence 페이지가 연결되었습니다.");
+    return true;
 }
 
 async function importConfluence() {
@@ -1812,12 +1855,10 @@ window.openConfluenceById = async function(recordId) {
 };
 
 window.linkConfluenceById = async function(recordId) {
-    console.log("목록에서 Confluence 생성:", recordId);
+    console.log("목록에서 기존 Confluence 연결:", recordId);
 
-    document.getElementById("recordId").value = recordId;
-
-    await generateConfluence();
-    await loadRecords();
+    const linked = await linkConfluence(recordId);
+    if (linked) await loadRecords();
 };
 // =============================
 // Confluence 가져오기 모달
