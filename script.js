@@ -524,6 +524,9 @@ document.getElementById("installForm").addEventListener("submit", async (event) 
 // 장착목록 조회
 // =============================
 let allRecords = [];
+let filteredRecords = [];
+let recordCurrentPage = 1;
+let recordPageSize = 10;
 
 async function loadRecords() {
     const { data, error } = await supabaseClient
@@ -586,6 +589,7 @@ allRecords = (data || []).map(record => ({
 }));
 
     renderYearFilterChips();
+    renderMonthFilterOptions();
     applyRecordFilters();
 }
 function renderRecords(records) {
@@ -676,6 +680,36 @@ function renderRecords(records) {
         `;
     }).join("");
 
+}
+
+function renderRecordPage() {
+    const totalRecords = filteredRecords.length;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / recordPageSize));
+
+    recordCurrentPage = Math.min(Math.max(1, recordCurrentPage), totalPages);
+
+    const startIndex = (recordCurrentPage - 1) * recordPageSize;
+    const pageRecords = filteredRecords.slice(
+        startIndex,
+        startIndex + recordPageSize
+    );
+
+    renderRecords(pageRecords);
+
+    const info = document.getElementById("recordPageInfo");
+    if (info) {
+        const startNumber = totalRecords ? startIndex + 1 : 0;
+        const endNumber = Math.min(startIndex + recordPageSize, totalRecords);
+        info.textContent = totalRecords
+            ? `${startNumber}–${endNumber} / 총 ${totalRecords}건`
+            : "총 0건";
+    }
+
+    const previousButton = document.getElementById("recordPrevPage");
+    const nextButton = document.getElementById("recordNextPage");
+
+    if (previousButton) previousButton.disabled = recordCurrentPage <= 1;
+    if (nextButton) nextButton.disabled = recordCurrentPage >= totalPages;
 }
 
 function exportRecordsToExcel() {
@@ -911,12 +945,40 @@ function renderYearFilterChips() {
     }
 }
 
-function applyRecordFilters() {
+function renderMonthFilterOptions() {
+    const select = document.getElementById("recordMonthSelect");
+    if (!select) return;
+
+    const previousValue = select.value;
+    const months = [...new Set(
+        allRecords
+            .map(record => String(record.install_date || "").slice(0, 7))
+            .filter(month => /^\d{4}-\d{2}$/.test(month))
+    )].sort((a, b) => b.localeCompare(a));
+
+    select.innerHTML = '<option value="">월별 선택</option>';
+
+    months.forEach(month => {
+        const [year, monthNumber] = month.split("-");
+        const option = document.createElement("option");
+        option.value = month;
+        option.textContent = `${year}년 ${Number(monthNumber)}월`;
+        select.appendChild(option);
+    });
+
+    if (months.includes(previousValue)) {
+        select.value = previousValue;
+    }
+}
+
+function applyRecordFilters(resetPage = true) {
     const keyword =
         document.getElementById("searchInput")?.value.trim().toLowerCase() || "";
 
     const activeFilter = document.querySelector(".filter-chip.active");
     const filter = activeFilter?.dataset.filter || "all";
+    const selectedMonth =
+        document.getElementById("recordMonthSelect")?.value || "";
 
     let records = [...allRecords];
 
@@ -939,6 +1001,17 @@ function applyRecordFilters() {
 
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
+
+    if (selectedMonth) {
+        records = records.filter(record =>
+            (record.install_date || "").startsWith(selectedMonth)
+        );
+
+        filteredRecords = records;
+        if (resetPage) recordCurrentPage = 1;
+        renderRecordPage();
+        return;
+    }
 
     if (filter === "today") {
         records = records.filter(record => record.install_date === todayStr);
@@ -977,7 +1050,9 @@ function applyRecordFilters() {
         );
     }
 
-    renderRecords(records);
+    filteredRecords = records;
+    if (resetPage) recordCurrentPage = 1;
+    renderRecordPage();
 }
 // =============================
 // 장착 상세 보기
@@ -2041,7 +2116,48 @@ document.getElementById("recordFilter")
         });
 
         button.classList.add("active");
+
+        const monthSelect = document.getElementById("recordMonthSelect");
+        if (monthSelect) monthSelect.value = "";
+
         applyRecordFilters();
+    });
+document.getElementById("recordMonthSelect")
+    ?.addEventListener("change", event => {
+        if (event.target.value) {
+            document.querySelectorAll(".filter-chip").forEach(button => {
+                button.classList.remove("active");
+            });
+        } else {
+            document
+                .querySelector('[data-filter="all"]')
+                ?.classList.add("active");
+        }
+
+        applyRecordFilters();
+    });
+document.getElementById("recordPageSize")
+    ?.addEventListener("change", event => {
+        recordPageSize = Number(event.target.value) || 10;
+        recordCurrentPage = 1;
+        renderRecordPage();
+    });
+document.getElementById("recordPrevPage")
+    ?.addEventListener("click", () => {
+        if (recordCurrentPage <= 1) return;
+        recordCurrentPage -= 1;
+        renderRecordPage();
+    });
+document.getElementById("recordNextPage")
+    ?.addEventListener("click", () => {
+        const totalPages = Math.max(
+            1,
+            Math.ceil(filteredRecords.length / recordPageSize)
+        );
+
+        if (recordCurrentPage >= totalPages) return;
+        recordCurrentPage += 1;
+        renderRecordPage();
     });
 document.getElementById("closeViewModal")
     ?.addEventListener("click", () => {

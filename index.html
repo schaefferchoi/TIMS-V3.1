@@ -801,6 +801,12 @@
             <button type="button" class="filter-chip" data-filter="week">이번주</button>
             <button type="button" class="filter-chip" data-filter="month">이번달</button>
           </div>
+          <select
+            id="recordMonthSelect"
+            class="record-month-select"
+            aria-label="장착 월 선택">
+            <option value="">월별 선택</option>
+          </select>
           <button type="button" id="exportExcelBtn" class="secondary">
             엑셀 내보내기
           </button>
@@ -833,6 +839,22 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="record-pagination" aria-label="장착목록 페이지 이동">
+          <label class="record-page-size">
+            <span>페이지당</span>
+            <select id="recordPageSize" aria-label="페이지당 목록 수">
+              <option value="10">10줄</option>
+              <option value="20">20줄</option>
+              <option value="50">50줄</option>
+            </select>
+          </label>
+          <span id="recordPageInfo" class="record-page-info">0건</span>
+          <div class="record-page-buttons">
+            <button type="button" id="recordPrevPage" class="secondary">이전</button>
+            <button type="button" id="recordNextPage" class="secondary">다음</button>
+          </div>
         </div>
       </div>
     </section>
