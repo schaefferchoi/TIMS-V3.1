@@ -1371,6 +1371,9 @@ document
 .getElementById("confluenceBtn")
 .addEventListener("click", generateConfluence);
 document
+    .getElementById("bottomConfluenceBtn")
+    .addEventListener("click", generateConfluence);
+document
     .getElementById("openConfluenceBtn")
     .addEventListener("click", openConfluence);
 
@@ -1381,7 +1384,40 @@ document
     .getElementById("importConfluenceBtn")
     .addEventListener("click", showImportModal);
 
+let confluenceSyncInProgress = false;
+
 async function generateConfluence() {
+    if (confluenceSyncInProgress) {
+        alert("Confluence 동기화가 진행 중입니다.\n잠시만 기다려주세요.");
+        return;
+    }
+
+    const buttons = [
+        document.getElementById("confluenceBtn"),
+        document.getElementById("bottomConfluenceBtn")
+    ].filter(Boolean);
+    const originalTexts = new Map(
+        buttons.map(button => [button, button.textContent || "Confluence 생성"])
+    );
+
+    confluenceSyncInProgress = true;
+    buttons.forEach(button => {
+        button.disabled = true;
+        button.textContent = "Confluence 생성 중…";
+    });
+
+    try {
+        await runConfluenceSync();
+    } finally {
+        confluenceSyncInProgress = false;
+        buttons.forEach(button => {
+            button.disabled = false;
+            button.textContent = originalTexts.get(button) || "Confluence 생성";
+        });
+    }
+}
+
+async function runConfluenceSync() {
     const recordId = document.getElementById("recordId").value;
 
     if (!recordId) {
@@ -1397,6 +1433,15 @@ async function generateConfluence() {
     const token = localStorage.getItem("confToken");
     const space = localStorage.getItem("confSpace");
 
+    if (!url || !email || !token) {
+        alert(
+            "이 기기에 Confluence 설정값이 없습니다.\n\n" +
+            "설정 탭에서 URL, 이메일, API Token을 저장한 후 " +
+            "다시 동기화해 주세요."
+        );
+        return;
+    }
+
     const { data: record, error: recordError } = await supabaseClient
         .from("install_records")
         .select("*")
@@ -1406,6 +1451,14 @@ async function generateConfluence() {
     if (recordError) {
         console.error(recordError);
         alert("장착정보 조회 실패");
+        return;
+    }
+
+    if (!record.confluence_page_id && !space) {
+        alert(
+            "이 기기에 Confluence Space Key가 없습니다.\n\n" +
+            "설정 탭에서 Space Key를 저장한 후 다시 동기화해 주세요."
+        );
         return;
     }
 
@@ -1440,27 +1493,56 @@ async function generateConfluence() {
             "사진 타입:",
     (photos || []).map(photo => photo.photo_type)
 );
-    const response = await fetch(
-        "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                url,
-                email,
-                token,
-                space,
-                title: pageTitle,
-                data: record,
-                photos: photos || [],
-                pageId: record.confluence_page_id || null
-            })
-        }
-    );
+    let response;
 
-    const result = await response.json();
+    try {
+        response = await fetch(
+            "https://istnemevsmoymydfgvwy.supabase.co/functions/v1/smooth-action",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    url,
+                    email,
+                    token,
+                    space,
+                    title: pageTitle,
+                    data: record,
+                    photos: photos || [],
+                    pageId: record.confluence_page_id || null
+                })
+            }
+        );
+    } catch (error) {
+        console.error("Confluence 동기화 네트워크 오류:", error);
+        alert(
+            "Confluence 동기화 서버에 연결할 수 없습니다.\n\n" +
+            "모바일 네트워크를 확인한 후 잠시 뒤 다시 시도해 주세요."
+        );
+        return;
+    }
+
+    const responseText = await response.text();
+    let result = null;
+
+    try {
+        result = responseText ? JSON.parse(responseText) : {};
+    } catch {
+        console.error("Confluence 동기화 비정상 응답:", {
+            status: response.status,
+            contentType: response.headers.get("content-type"),
+            body: responseText.slice(0, 500)
+        });
+
+        alert(
+            "Confluence 동기화 서버가 일시적으로 정상 응답을 주지 않았습니다.\n\n" +
+            `HTTP ${response.status}\n` +
+            "잠시 뒤 다시 시도해 주세요."
+        );
+        return;
+    }
 
     if (!response.ok) {
     console.error("Confluence 동기화 오류:", result);
