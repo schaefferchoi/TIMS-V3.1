@@ -174,7 +174,7 @@
          <div class="actions">
           <button id="saveBtn" type="submit" class="primary">저장</button>
           <button type="button" class="secondary" id="newRecordBtn" onclick="newForm()">신규 입력</button>
-          <button type="button" class="secondary" id="confluenceBtn">Confluence 생성</button>
+          <button type="button" class="secondary" id="confluenceBtn">Confluence 생성·수정</button>
           <button type="button" class="secondary" id="openConfluenceBtn">Confluence 열기</button>
           <button type="button" class="secondary" id="linkConfluenceBtn">Confluence 연결</button>
           <button type="button" class="secondary" id="importConfluenceBtn">Confluence 가져오기</button>
@@ -782,7 +782,7 @@
     class="secondary"
     id="bottomConfluenceBtn"
   >
-    Confluence 생성
+    Confluence 생성·수정
   </button>
 
 </div>
@@ -860,6 +860,18 @@ API Token
 <label>
 Space Key
 <input id="confSpace" type="text">
+</label>
+
+<label>
+상위 페이지 URL 또는 Page ID
+<input
+id="confParentPage"
+type="text"
+placeholder="예: 1048543457 또는 Confluence 페이지 URL"
+inputmode="url">
+<small class="field-help">
+새 페이지가 생성될 위치입니다. 비워두면 기본 위치에 생성됩니다.
+</small>
 </label>
 
 <button

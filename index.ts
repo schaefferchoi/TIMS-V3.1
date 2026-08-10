@@ -18,6 +18,7 @@ Deno.serve(async (req: Request) => {
       data,
       photos = [],
       pageId = null,
+      parentPage = "",
     } = await req.json();
 
     if (!url || !email || !token) {
@@ -42,7 +43,7 @@ Deno.serve(async (req: Request) => {
     const auth = btoa(`${email}:${token}`);
 
     const templateId = "2320893193";
-    const parentPageId = "1048543457";
+    const parentPageId = resolveParentPageId(parentPage) || "1048543457";
 
     /*
      * 템플릿 원본을 먼저 불러옵니다.
@@ -198,6 +199,28 @@ function normalizeBaseUrl(url: string) {
   return parsed.origin;
 }
 
+function resolveParentPageId(value: unknown) {
+  const input = String(value || "").trim();
+
+  if (!input) return "";
+  if (/^\d+$/.test(input)) return input;
+
+  try {
+    const parsed = new URL(input);
+    const queryId = parsed.searchParams.get("pageId");
+    const pathId = parsed.pathname.match(/\/pages\/(\d+)(?:\/|$)/)?.[1];
+    const pageId = queryId || pathId || "";
+
+    if (/^\d+$/.test(pageId)) return pageId;
+  } catch {
+    // 아래의 사용자 안내 오류로 처리합니다.
+  }
+
+  throw new Error(
+    "상위 페이지를 확인할 수 없습니다. 숫자 Page ID 또는 Page ID가 포함된 Confluence URL을 입력해 주세요.",
+  );
+}
+
 /*
  * Confluence 템플릿 본문 불러오기
  */
@@ -224,6 +247,13 @@ async function fetchTemplateSource({
   const result = await response.json();
 
   if (!response.ok) {
+    if (response.status === 403 || response.status === 404) {
+      console.warn(
+        `Confluence 원격 템플릿을 사용할 수 없어 내장 템플릿을 사용합니다: ${response.status}`,
+      );
+      return builtInTemplateSource();
+    }
+
     throw new Error(
       `Confluence 템플릿 조회 실패: ${response.status} ${JSON.stringify(result)}`,
     );
@@ -238,6 +268,67 @@ async function fetchTemplateSource({
   }
 
   return templateSource;
+}
+
+function builtInTemplateSource() {
+  return `
+<table><tbody>
+  <tr>
+    <th>품명</th><th>BOX S/N</th><th>KEYPAD S/N</th><th>딜러점(지역)</th>
+    <th>대표</th><th>장착 일자</th><th>장착 주체</th><th>장착 직원</th>
+    <th>스플라인</th><th>브라켓</th><th>비고</th>
+  </tr>
+  <tr>
+    <td>{{product_name}}</td><td>{{box_sn}}</td><td>{{keypad_sn}}</td><td>{{dealer_name}}</td>
+    <td>{{representative}}</td><td>{{install_date}}</td><td>{{install_subject}}</td><td>{{installer}}</td>
+    <td>{{spline}}</td><td>{{bracket}}</td><td>{{memo}}</td>
+  </tr>
+</tbody></table>
+
+<table><tbody>
+  <tr><th colspan="9">버전 정보 및 버전 이력 관리</th><th>비고</th></tr>
+  <tr>
+    <th>ADA1</th><th>자율주행 소프트웨어(MoA S/W)</th><td>{{ad_a1_sw}}</td>
+    <th>자율주행 제어 펌웨어 (CoA F/W)</th><td>{{coa_fw}}</td>
+    <th>INS Ver (INS S/W)</th><td>{{ins_ver}}</td>
+    <th>MOA FS Version (MoA F/W)</th><td>{{moa_fw}}</td><td></td>
+  </tr>
+  <tr>
+    <th>ADC2</th><th>CPG FS Version (CPG F/W)</th><td>{{cpg_fw}}</td>
+    <th>ADC2 (CPG S/W)</th><td>{{adc2}}</td>
+    <th>자율주행 콘솔 S/W (CPAD SW)</th><td>{{cpad_sw}}</td><td></td><td></td><td></td>
+  </tr>
+</tbody></table>
+
+<table><tbody>
+  <tr>
+    <th>기종</th><th>제조사</th><th>모델명 (S/N)</th><th>고객명</th>
+    <th>연락처</th><th>주소</th><th>교육 일자</th><th>교육 직원</th>
+  </tr>
+  <tr>
+    <td>{{machine_type}}</td><td>{{manufacturer}}</td><td>{{model_sn}}</td><td>{{customer_name}}</td>
+    <td>{{phone}}</td><td>{{address}}</td><td>{{education_date}}</td><td>{{education_staff}}</td>
+  </tr>
+  <tr>
+    <th>농사 규모</th><td>{{farm_size}}</td><th>주요 작물</th><td>{{main_crop}}</td>
+    <th>비고</th><td colspan="3">{{memo}}</td>
+  </tr>
+</tbody></table>
+
+<table><tbody>
+  <tr><th>장착 사진</th><th>주요 이슈</th></tr>
+  <tr><td>{{install_photos}}</td><td>{{install_issue}}</td></tr>
+  <tr><th>차량제원</th><td></td></tr>
+  <tr><td>{{vehicle_photos}}</td><td>{{vehicle_issue}}</td></tr>
+  <tr><th>F/W, S/W 버전</th><td></td></tr>
+  <tr><td>{{version_photos}}</td><td>{{version_issue}}</td></tr>
+  <tr><th>EPS부 장착 사진</th><td></td></tr>
+  <tr><td>{{eps_photos}}</td><td>{{eps_issue}}</td></tr>
+  <tr><th>CPG/KEYPAD 장착사진</th><td></td></tr>
+  <tr><td>{{cpg_photos}}</td><td>{{cpg_issue}}</td></tr>
+  <tr><th>ACU부 부착 사진</th><th>주요 이슈</th></tr>
+  <tr><td>{{acu_photos}}</td><td>{{acu_issue}}</td></tr>
+</tbody></table>`;
 }
 
 /*

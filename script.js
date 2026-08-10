@@ -1287,12 +1287,14 @@ document.addEventListener("drop", async event => {
                 formChanged = true;
             }
         } else if (photo.kind === "saved" && photo.id) {
-            const { error } = await supabaseClient
+            const { data: movedPhoto, error } = await supabaseClient
                 .from("install_photos")
                 .update({ photo_type: targetType })
-                .eq("id", photo.id);
+                .eq("id", photo.id)
+                .select("id, photo_type")
+                .single();
 
-            if (error) {
+            if (error || movedPhoto?.photo_type !== targetType) {
                 console.error("사진 분류 이동 실패:", error);
                 alert("사진 항목 이동에 실패했습니다.");
             } else {
@@ -1397,13 +1399,13 @@ async function generateConfluence() {
         document.getElementById("bottomConfluenceBtn")
     ].filter(Boolean);
     const originalTexts = new Map(
-        buttons.map(button => [button, button.textContent || "Confluence 생성"])
+        buttons.map(button => [button, button.textContent || "Confluence 생성·수정"])
     );
 
     confluenceSyncInProgress = true;
     buttons.forEach(button => {
         button.disabled = true;
-        button.textContent = "Confluence 생성 중…";
+        button.textContent = "Confluence 처리 중…";
     });
 
     try {
@@ -1412,7 +1414,7 @@ async function generateConfluence() {
         confluenceSyncInProgress = false;
         buttons.forEach(button => {
             button.disabled = false;
-            button.textContent = originalTexts.get(button) || "Confluence 생성";
+            button.textContent = originalTexts.get(button) || "Confluence 생성·수정";
         });
     }
 }
@@ -1432,6 +1434,7 @@ async function runConfluenceSync() {
     const email = localStorage.getItem("confEmail");
     const token = localStorage.getItem("confToken");
     const space = localStorage.getItem("confSpace");
+    const parentPage = localStorage.getItem("confParentPage") || "";
 
     if (!url || !email || !token) {
         alert(
@@ -1511,7 +1514,8 @@ async function runConfluenceSync() {
                     title: pageTitle,
                     data: record,
                     photos: photos || [],
-                    pageId: record.confluence_page_id || null
+                    pageId: record.confluence_page_id || null,
+                    parentPage: record.confluence_page_id ? "" : parentPage
                 })
             }
         );
@@ -1977,6 +1981,11 @@ function saveConfluenceSetting(){
         document.getElementById("confSpace").value
     );
 
+    localStorage.setItem(
+        "confParentPage",
+        document.getElementById("confParentPage").value.trim()
+    );
+
     alert("Confluence 설정이 저장되었습니다.");
 }
 
@@ -1991,6 +2000,9 @@ localStorage.getItem("confToken") || "";
 
 document.getElementById("confSpace").value =
 localStorage.getItem("confSpace") || "";
+
+document.getElementById("confParentPage").value =
+localStorage.getItem("confParentPage") || "";
 
 document.getElementById("newRecordBtn").addEventListener("click", () => {
     newForm();
