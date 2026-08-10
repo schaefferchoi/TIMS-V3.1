@@ -544,7 +544,7 @@
       onchange="uploadPhotoByType('install', 'installPhotoInput')"
     />
 
-    <div id="installPhotos" class="photo-grid"></div>
+    <div id="installPhotos" class="photo-grid" data-photo-type="install"></div>
   </section>
 
   <!-- 2. 차량제원 -->
@@ -570,7 +570,7 @@
       onchange="uploadPhotoByType('vehicle', 'vehiclePhotoInput')"
     />
 
-    <div id="vehiclePhotos" class="photo-grid"></div>
+    <div id="vehiclePhotos" class="photo-grid" data-photo-type="vehicle"></div>
   </section>
 
   <!-- 3. 농기계 기대번호 -->
@@ -596,7 +596,7 @@
       onchange="uploadPhotoByType('machineNumber', 'machineNumberPhotoInput')"
     />
 
-    <div id="machineNumberPhotos" class="photo-grid"></div>
+    <div id="machineNumberPhotos" class="photo-grid" data-photo-type="machineNumber"></div>
   </section>
 
   <!-- 4. 후방카메라 -->
@@ -622,7 +622,7 @@
       onchange="uploadPhotoByType('rearCamera', 'rearCameraPhotoInput')"
     />
 
-    <div id="rearCameraPhotos" class="photo-grid"></div>
+    <div id="rearCameraPhotos" class="photo-grid" data-photo-type="rearCamera"></div>
   </section>
 
   <!-- 5. EPS -->
@@ -648,7 +648,7 @@
       onchange="uploadPhotoByType('eps', 'epsPhotoInput')"
     />
 
-    <div id="epsPhotos" class="photo-grid"></div>
+    <div id="epsPhotos" class="photo-grid" data-photo-type="eps"></div>
   </section>
 
   <!-- 6. CPG / KEYPAD -->
@@ -674,7 +674,7 @@
       onchange="uploadPhotoByType('cpg', 'cpgPhotoInput')"
     />
 
-    <div id="cpgPhotos" class="photo-grid"></div>
+    <div id="cpgPhotos" class="photo-grid" data-photo-type="cpg"></div>
   </section>
 
   <!-- 7. ACU -->
@@ -700,7 +700,7 @@
       onchange="uploadPhotoByType('acu', 'acuPhotoInput')"
     />
 
-    <div id="acuPhotos" class="photo-grid"></div>
+    <div id="acuPhotos" class="photo-grid" data-photo-type="acu"></div>
   </section>
 
   <!-- 8. F/W · S/W -->
@@ -726,7 +726,7 @@
       onchange="uploadPhotoByType('version', 'versionPhotoInput')"
     />
 
-    <div id="versionPhotos" class="photo-grid"></div>
+    <div id="versionPhotos" class="photo-grid" data-photo-type="version"></div>
   </section>
 
 </div>
@@ -758,8 +758,6 @@
             <button type="button" class="filter-chip" data-filter="today">오늘</button>
             <button type="button" class="filter-chip" data-filter="week">이번주</button>
             <button type="button" class="filter-chip" data-filter="month">이번달</button>
-            <button type="button" class="filter-chip" data-filter="saved">저장완료</button>
-            <button type="button" class="filter-chip" data-filter="photoMissing">사진 미등록</button>
           </div>
           <button type="button" id="exportExcelBtn" class="secondary">
             엑셀 내보내기

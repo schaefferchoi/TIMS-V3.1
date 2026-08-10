@@ -487,8 +487,14 @@ function renderTempPhotos(photoType) {
         const imageUrl = URL.createObjectURL(file);
 
         target.innerHTML += `
-            <div class="photo-card">
-                <img src="${imageUrl}" alt="사진">
+            <div
+                class="photo-card photo-card-draggable"
+                draggable="true"
+                data-photo-kind="temp"
+                data-photo-type="${photoType}"
+                data-photo-index="${index}"
+                title="드래그해 다른 사진 항목으로 이동">
+                <img src="${imageUrl}" alt="사진" draggable="false">
                 <button
                     type="button"
                     class="danger"
@@ -529,6 +535,7 @@ async function loadRecords() {
             dealer_type_id
         )
     `)
+    .order("install_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
     if (error) {
@@ -563,7 +570,7 @@ async function loadRecords() {
 
     console.log("현재 목록", data);
 
-    allRecords = (data || []).map(record => ({
+allRecords = (data || []).map(record => ({
     ...record,
 
     dealer_name:
@@ -578,6 +585,7 @@ async function loadRecords() {
         photoSetMap[record.id] || []
 }));
 
+    renderYearFilterChips();
     applyRecordFilters();
 }
 function renderRecords(records) {
@@ -611,29 +619,11 @@ function renderRecords(records) {
         Math.round((photoCount / 8) * 100)
         );
 
-        const filledBars = Math.min(
-            10,
-            Math.max(0, Math.round(photoPercent / 10))
-        );
-
-const photoBar =
-    "█".repeat(filledBars) +
-    "░".repeat(10 - filledBars);
-
-     const requiredPhotos = [
-    "install",
-    "vehicle",
-    "machineNumber",
-    "rearCamera",
-    "eps",
-    "cpg",
-    "acu",
-    "version"
-];
-
-const missingPhotos = requiredPhotos.filter(
-    type => !record.photoTypes.includes(type)
-);
+        const photoProgressClass = photoPercent === 100
+            ? "is-complete"
+            : photoPercent >= 50
+            ? "is-active"
+            : "is-low";
         return `
             <tr>
                 <td>${record.install_date || "-"}</td>
@@ -646,19 +636,17 @@ const missingPhotos = requiredPhotos.filter(
                     ${record.manufacturer || ""} ${record.model_sn || ""}
                 </td>
                 <td>
-                 <div class="photo-progress">
-                    <div>${photoBar}</div>
-                    <small>${photoCount}/8 (${photoPercent}%)</small>
-
-                    ${missingPhotos.length
-                       ? `<div class="photo-warning">
-                        ⚠ ${missingPhotos.length}개 누락
-                    </div>`
-                    : `<div class="photo-ok">
-                    ✓ 완료
-                    </div>`
-}
-                 </div>
+                    <div
+                        class="photo-progress ${photoProgressClass}"
+                        aria-label="사진 항목 ${photoCount}/8, ${photoPercent}%">
+                        <div class="photo-progress-meta">
+                            <span class="photo-progress-count">${photoCount}/8</span>
+                            <span class="photo-progress-percent">${photoPercent}%</span>
+                        </div>
+                        <div class="photo-progress-track" aria-hidden="true">
+                            <span style="width: ${photoPercent}%"></span>
+                        </div>
+                    </div>
                 </td>
                 <td>
                     <button
@@ -881,12 +869,54 @@ function escapeHtml(value) {
         .replace(/'/g, "&#039;");
 }
 
+function renderYearFilterChips() {
+    const container = document.getElementById("recordFilter");
+    if (!container) return;
+
+    const activeButton = container.querySelector(".filter-chip.active");
+    const activeYear = activeButton?.dataset.filter === "year"
+        ? activeButton.dataset.year
+        : null;
+
+    container
+        .querySelectorAll('[data-filter="year"]')
+        .forEach(button => button.remove());
+
+    const years = [...new Set(
+        allRecords
+            .map(record => String(record.install_date || "").slice(0, 4))
+            .filter(year => /^\d{4}$/.test(year))
+    )].sort((a, b) => Number(b) - Number(a));
+
+    years.forEach(year => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "filter-chip";
+        button.dataset.filter = "year";
+        button.dataset.year = year;
+        button.textContent = `${year}년`;
+        container.appendChild(button);
+    });
+
+    if (activeYear) {
+        const restoredButton = [...container.querySelectorAll('[data-filter="year"]')]
+            .find(button => button.dataset.year === activeYear);
+
+        if (restoredButton) {
+            container
+                .querySelectorAll(".filter-chip")
+                .forEach(button => button.classList.remove("active"));
+            restoredButton.classList.add("active");
+        }
+    }
+}
+
 function applyRecordFilters() {
     const keyword =
         document.getElementById("searchInput")?.value.trim().toLowerCase() || "";
 
-    const filter =
-    document.querySelector(".filter-chip.active")?.dataset.filter || "all";
+    const activeFilter = document.querySelector(".filter-chip.active");
+    const filter = activeFilter?.dataset.filter || "all";
 
     let records = [...allRecords];
 
@@ -940,14 +970,11 @@ function applyRecordFilters() {
         );
     }
 
-    if (filter === "saved") {
+    if (filter === "year") {
+        const year = activeFilter?.dataset.year || "";
         records = records.filter(record =>
-            (record.status || "저장") === "저장"
+            (record.install_date || "").startsWith(`${year}-`)
         );
-    }
-
-    if (filter === "photoMissing") {
-        records = records.filter(record => (record.photoCount || 0) === 0);
     }
 
     renderRecords(records);
@@ -1166,11 +1193,18 @@ function renderPhotos(photos) {
         if (!target) return;
 
         target.innerHTML += `
-            <div class="photo-card">
+            <div
+                class="photo-card photo-card-draggable"
+                draggable="true"
+                data-photo-kind="saved"
+                data-photo-id="${photo.id}"
+                data-photo-type="${photo.photo_type}"
+                title="드래그해 다른 사진 항목으로 이동">
 
                 <img
                     src="${photo.photo_url}"
                     alt="사진"
+                    draggable="false"
                     onclick="openPhoto('${photo.photo_url}')">
 
                 <button
@@ -1186,6 +1220,102 @@ function renderPhotos(photos) {
     });
 
 }
+
+let draggedPhoto = null;
+
+document.addEventListener("dragstart", event => {
+    const card = event.target.closest(".photo-card-draggable");
+    if (!card) return;
+
+    draggedPhoto = {
+        kind: card.dataset.photoKind,
+        sourceType: card.dataset.photoType,
+        index: Number(card.dataset.photoIndex),
+        id: card.dataset.photoId || null,
+        card
+    };
+
+    card.classList.add("is-dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", "photo-move");
+});
+
+document.addEventListener("dragover", event => {
+    if (!draggedPhoto) return;
+
+    const targetCard = event.target.closest(".photo-upload-card");
+    const targetGrid = targetCard?.querySelector(".photo-grid[data-photo-type]");
+    if (targetGrid) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+
+        document
+            .querySelectorAll(".photo-upload-card.is-drop-target")
+            .forEach(card => card.classList.remove("is-drop-target"));
+        targetCard.classList.add("is-drop-target");
+    }
+
+    const scrollEdge = 100;
+    const scrollStep = 18;
+
+    if (event.clientY < scrollEdge) {
+        window.scrollBy(0, -scrollStep);
+    } else if (window.innerHeight - event.clientY < scrollEdge) {
+        window.scrollBy(0, scrollStep);
+    }
+});
+
+document.addEventListener("drop", async event => {
+    const targetCard = event.target.closest(".photo-upload-card");
+    const targetGrid = targetCard?.querySelector(".photo-grid[data-photo-type]");
+    if (!draggedPhoto || !targetGrid) return;
+
+    event.preventDefault();
+
+    const photo = draggedPhoto;
+    const targetType = targetGrid.dataset.photoType;
+    const sourceType = photo.sourceType;
+
+    if (targetType !== sourceType) {
+        if (photo.kind === "temp") {
+            const [file] = tempPhotos[sourceType].splice(photo.index, 1);
+
+            if (file) {
+                tempPhotos[targetType].push(file);
+                renderTempPhotos(sourceType);
+                renderTempPhotos(targetType);
+                formChanged = true;
+            }
+        } else if (photo.kind === "saved" && photo.id) {
+            const { error } = await supabaseClient
+                .from("install_photos")
+                .update({ photo_type: targetType })
+                .eq("id", photo.id);
+
+            if (error) {
+                console.error("사진 분류 이동 실패:", error);
+                alert("사진 항목 이동에 실패했습니다.");
+            } else {
+                photo.card.dataset.photoType = targetType;
+                targetGrid.appendChild(photo.card);
+            }
+        }
+    }
+
+    clearPhotoDragState();
+});
+
+document.addEventListener("dragend", clearPhotoDragState);
+
+function clearPhotoDragState() {
+    draggedPhoto = null;
+    document
+        .querySelectorAll(".photo-card.is-dragging, .photo-upload-card.is-drop-target")
+        .forEach(element => {
+            element.classList.remove("is-dragging", "is-drop-target");
+        });
+}
+
 function newForm() {
     const form = document.getElementById("installForm");
     if (form) form.reset();
@@ -1805,10 +1935,12 @@ document
 document.getElementById("searchInput")
     ?.addEventListener("input", applyRecordFilters);
 
-document.querySelectorAll(".filter-chip").forEach(button => {
-    button.addEventListener("click", () => {
+document.getElementById("recordFilter")
+    ?.addEventListener("click", event => {
+        const button = event.target.closest(".filter-chip");
+        if (!button) return;
 
-        console.log(button.dataset.filter);
+        console.log(button.dataset.filter, button.dataset.year || "");
 
         document.querySelectorAll(".filter-chip").forEach(btn => {
             btn.classList.remove("active");
@@ -1816,9 +1948,7 @@ document.querySelectorAll(".filter-chip").forEach(button => {
 
         button.classList.add("active");
         applyRecordFilters();
-
     });
-});
 document.getElementById("closeViewModal")
     ?.addEventListener("click", () => {
         document.getElementById("viewModal")?.classList.add("hidden");
