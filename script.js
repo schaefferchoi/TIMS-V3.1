@@ -596,7 +596,7 @@ function renderRecords(records) {
     if (!records.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="empty">저장된 데이터가 없습니다.</td>
+                <td colspan="7" class="empty">저장된 데이터가 없습니다.</td>
             </tr>
         `;
         return;
@@ -625,17 +625,17 @@ function renderRecords(records) {
             ? "is-active"
             : "is-low";
         return `
-            <tr>
-                <td>${record.install_date || "-"}</td>
-                <td>${record.customer_name || "-"}</td>
-                <td>
+            <tr class="record-mobile-card">
+                <td data-label="장착일">${record.install_date || "-"}</td>
+                <td data-label="고객">${record.customer_name || "-"}</td>
+                <td data-label="제품 / BOX">
                     ${record.product_name || "-"}<br>
                     <small>BOX: ${record.box_sn || "-"}</small>
                 </td>
-                <td>
+                <td data-label="농기계">
                     ${record.manufacturer || ""} ${record.model_sn || ""}
                 </td>
-                <td>
+                <td data-label="사진">
                     <div
                         class="photo-progress ${photoProgressClass}"
                         aria-label="사진 항목 ${photoCount}/8, ${photoPercent}%">
@@ -648,7 +648,7 @@ function renderRecords(records) {
                         </div>
                     </div>
                 </td>
-                <td>
+                <td data-label="Confluence">
                     <button
                         type="button"
                         class="secondary"
@@ -657,7 +657,7 @@ function renderRecords(records) {
                     </button>
                 </td>
 
-                <td>
+                <td data-label="관리" class="record-actions-cell">
                     <button
                         class="secondary"
                         type="button"
@@ -1865,11 +1865,11 @@ document
 
 function setDefaultVersions() {
     document.getElementById("ad_a1_software").value = "1.6.2.2";
-    document.getElementById("coa_fw").value = "106";
+    document.getElementById("coa_fw").value = "107";
     document.getElementById("ins_ver").value = "1.6.7";
     document.getElementById("moa_fw").value = "1.71.0";
     document.getElementById("cpg_fw").value = "1.0.3.0";
-    document.getElementById("adc2").value = "";
+    document.getElementById("adc2").value = "1.4.1";
     document.getElementById("cpad_sw").value = "1.6.1.9";
 }
 
@@ -2522,61 +2522,122 @@ function toggleMachineSection() {
 async function loadDashboard() {
     const now = new Date();
     const currentYear = now.getFullYear();
-    const currentMonth = String(now.getMonth() + 1).padStart(2, "0");
-    const currentDay = String(now.getDate()).padStart(2, "0");
-
-    const today = `${currentYear}-${currentMonth}-${currentDay}`;
-    const monthPrefix = `${currentYear}-${currentMonth}`;
-    const startDate = `${currentYear}-01-01`;
-    const endDate = `${currentYear}-12-31`;
+    const yearSelect = document.getElementById("dashboardYearSelect");
 
     const { data, error } = await supabaseClient
         .from("install_records")
         .select(`
+            id,
             install_date,
-            education_date,
             sales_type,
             customer_address,
+            customer_name,
+            customer_phone,
             product_name,
-            manufacturer
+            manufacturer,
+            model_sn,
+            confluence_page_id,
+            confluence_page_url
         `)
-        .gte("install_date", startDate)
-        .lte("install_date", endDate);
+        .order("install_date", { ascending: false, nullsFirst: false });
 
     if (error) {
         console.error("대시보드 조회 실패:", error);
         return;
     }
 
-    const records = data || [];
+    const allDashboardRecords = data || [];
+    const availableYears = [...new Set(
+        allDashboardRecords
+            .map(record => String(record.install_date || "").slice(0, 4))
+            .filter(year => /^\d{4}$/.test(year))
+    )].sort((a, b) => Number(b) - Number(a));
+
+    const requestedYear = Number(yearSelect?.value) || currentYear;
+    const selectedYear = availableYears.includes(String(requestedYear))
+        ? requestedYear
+        : Number(availableYears[0]) || currentYear;
+
+    if (yearSelect) {
+        yearSelect.innerHTML = availableYears
+            .map(year => `
+                <option value="${year}" ${Number(year) === selectedYear ? "selected" : ""}>
+                    ${year}년
+                </option>
+            `)
+            .join("");
+    }
+
+    const records = allDashboardRecords.filter(record =>
+        String(record.install_date || "").startsWith(`${selectedYear}-`)
+    );
+    const recordIds = records.map(record => record.id);
+    let photos = [];
+
+    if (recordIds.length > 0) {
+        const { data: photoData, error: photoError } = await supabaseClient
+            .from("install_photos")
+            .select("record_id, photo_type")
+            .in("record_id", recordIds);
+
+        if (photoError) {
+            console.error("대시보드 사진 집계 실패:", photoError);
+        } else {
+            photos = photoData || [];
+        }
+    }
 
     const monthlyCount = new Array(12).fill(0);
 
-records.forEach(record => {
-    const installDate = String(record.install_date || "");
+    records.forEach(record => {
+        const installDate = String(record.install_date || "");
+        const month = Number(installDate.substring(5, 7));
 
-    if (!installDate) return;
-
-    const month = Number(installDate.substring(5, 7));
-
-    if (month >= 1 && month <= 12) {
-        monthlyCount[month - 1] += 1;
-    }
-});
+        if (month >= 1 && month <= 12) {
+            monthlyCount[month - 1] += 1;
+        }
+    });
 
     const totalInstallCount = records.length;
+    const activeMonthCount = monthlyCount.filter(count => count > 0).length;
+    const averageInstallCount = activeMonthCount > 0
+        ? (totalInstallCount / activeMonthCount).toFixed(1)
+        : "0";
+    const photoTypesByRecord = {};
 
-    const monthInstallCount = records.filter(record =>
-        String(record.install_date || "").startsWith(monthPrefix)
-    ).length;
+    photos.forEach(photo => {
+        if (!photoTypesByRecord[photo.record_id]) {
+            photoTypesByRecord[photo.record_id] = new Set();
+        }
+        if (photo.photo_type) {
+            photoTypesByRecord[photo.record_id].add(photo.photo_type);
+        }
+    });
 
-    const todayInstallCount = records.filter(
-        record => record.install_date === today
+    const completedPhotoCount = records.filter(record =>
+        (photoTypesByRecord[record.id]?.size || 0) >= 8
     ).length;
-
-    const totalEducationCount = records.filter(
-        record => Boolean(record.education_date)
+    const connectedConfluenceCount = records.filter(record =>
+        Boolean(record.confluence_page_id || record.confluence_page_url)
     ).length;
+    const photoCompletionRate = totalInstallCount > 0
+        ? Math.round((completedPhotoCount / totalInstallCount) * 100)
+        : 0;
+    const confluenceConnectionRate = totalInstallCount > 0
+        ? Math.round((connectedConfluenceCount / totalInstallCount) * 100)
+        : 0;
+    const attention = {
+        photoIncomplete: totalInstallCount - completedPhotoCount,
+        confluenceUnlinked: totalInstallCount - connectedConfluenceCount,
+        customerIncomplete: records.filter(record =>
+            !String(record.customer_name || "").trim() ||
+            !String(record.customer_phone || "").trim()
+        ).length
+    };
+    const recentRecords = records.slice(0, 5).map(record => ({
+        ...record,
+        photoCount: photoTypesByRecord[record.id]?.size || 0
+    }));
 
     const salesTypeCount = {
         일반: 0,
@@ -2633,11 +2694,13 @@ records.forEach(record => {
     });
 
     updateDashboardUI({
-        currentYear,
+        selectedYear,
         totalInstallCount,
-        monthInstallCount,
-        todayInstallCount,
-        totalEducationCount,
+        averageInstallCount,
+        photoCompletionRate,
+        confluenceConnectionRate,
+        attention,
+        recentRecords,
         salesTypeCount,
         regionCount,
         productCount,
@@ -2645,6 +2708,10 @@ records.forEach(record => {
         monthlyCount
     });
 }
+
+document
+    .getElementById("dashboardYearSelect")
+    ?.addEventListener("change", loadDashboard);
 
 function extractRegion(address) {
     const normalized = String(address || "")
@@ -2768,11 +2835,13 @@ function extractRegion(address) {
 }
 
 function updateDashboardUI({
-    currentYear,
+    selectedYear,
     totalInstallCount,
-    monthInstallCount,
-    todayInstallCount,
-    totalEducationCount,
+    averageInstallCount,
+    photoCompletionRate,
+    confluenceConnectionRate,
+    attention,
+    recentRecords,
     salesTypeCount,
     regionCount,
     productCount,
@@ -2787,11 +2856,42 @@ function updateDashboardUI({
         }
     };
 
-    setText("dashboardYear", `${currentYear}년`);
+    setText("dashboardYear", `${selectedYear}년`);
     setText("totalInstallCount", totalInstallCount);
-    setText("monthInstallCount", monthInstallCount);
-    setText("todayInstallCount", todayInstallCount);
-    setText("totalEducationCount", totalEducationCount);
+    setText("averageInstallCount", averageInstallCount);
+    setText("photoCompletionRate", photoCompletionRate);
+    setText("confluenceConnectionRate", confluenceConnectionRate);
+
+    const attentionTarget = document.getElementById("dashboardAttention");
+    if (attentionTarget) {
+        attentionTarget.innerHTML = [
+            ["사진 항목 미완료", attention.photoIncomplete, "photo"],
+            ["Confluence 미연결", attention.confluenceUnlinked, "confluence"],
+            ["고객정보 확인 필요", attention.customerIncomplete, "customer"]
+        ].map(([label, count, type]) => `
+            <div class="dashboard-attention-item ${Number(count) === 0 ? "is-clear" : ""}">
+                <span class="dashboard-attention-icon ${type}"></span>
+                <div><strong>${label}</strong><small>${Number(count) === 0 ? "완료" : "데이터 보완 필요"}</small></div>
+                <b>${count}건</b>
+            </div>
+        `).join("");
+    }
+
+    const recentTarget = document.getElementById("dashboardRecent");
+    if (recentTarget) {
+        recentTarget.innerHTML = recentRecords.length > 0
+            ? recentRecords.map(record => `
+                <button type="button" class="dashboard-recent-item" onclick="viewRecord('${record.id}')">
+                    <span class="dashboard-recent-date">${String(record.install_date || "-").slice(5).replace("-", ".")}</span>
+                    <span class="dashboard-recent-main">
+                        <strong>${escapeHtml(record.customer_name || "고객명 미입력")}</strong>
+                        <small>${escapeHtml([record.manufacturer, record.model_sn].filter(Boolean).join(" ") || record.product_name || "-")}</small>
+                    </span>
+                    <span class="dashboard-recent-photo">${record.photoCount}/8</span>
+                </button>
+            `).join("")
+            : `<p class="empty">최근 장착 기록이 없습니다.</p>`;
+    }
 
     const salesSummary =
         document.getElementById("salesTypeSummary");
@@ -2869,11 +2969,16 @@ function drawMonthlyInstallChart(monthlyCount) {
                 {
                     label: "장착대수",
                     data: monthlyCount,
+                    borderColor: "#2457a7",
+                    backgroundColor: "rgba(36, 87, 167, 0.10)",
                     borderWidth: 3,
                     tension: 0.35,
-                    fill: false,
+                    fill: true,
                     pointRadius: 4,
-                    pointHoverRadius: 6
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: "#ffffff",
+                    pointBorderColor: "#2457a7",
+                    pointBorderWidth: 2
                 }
             ]
         },
@@ -2899,6 +3004,8 @@ function drawMonthlyInstallChart(monthlyCount) {
             scales: {
                 y: {
                     beginAtZero: true,
+                    border: { display: false },
+                    grid: { color: "rgba(148, 163, 184, .18)" },
                     ticks: {
                         precision: 0,
                         stepSize: 1,
@@ -2909,9 +3016,11 @@ function drawMonthlyInstallChart(monthlyCount) {
                 },
 
                 x: {
+                    border: { display: false },
                     grid: {
                         display: false
-                    }
+                    },
+                    ticks: { color: "#718096" }
                 }
             }
         }

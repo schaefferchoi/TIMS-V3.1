@@ -34,51 +34,92 @@
 
     <div class="dashboard-header">
       <div>
-        <h2>대시보드</h2>
-        <p id="dashboardYear">2026년</p>
+        <span class="dashboard-eyebrow">OPERATIONS OVERVIEW</span>
+        <h2>운영 대시보드</h2>
+        <p><span id="dashboardYear">2026년</span> 장착 현황과 데이터 완성도를 확인하세요.</p>
       </div>
+      <label class="dashboard-year-control">
+        <span>조회 연도</span>
+        <select id="dashboardYearSelect" aria-label="대시보드 조회 연도"></select>
+      </label>
     </div>
 
     <div class="dashboard-summary-grid dashboard-summary-grid-four">
 
-      <div class="dashboard-summary-card">
-        <span>올해 장착</span>
+      <div class="dashboard-summary-card summary-primary">
+        <span>연간 총 장착</span>
         <div>
           <strong id="totalInstallCount">0</strong>
           <small>대</small>
         </div>
+        <p>선택 연도 전체 실적</p>
       </div>
 
       <div class="dashboard-summary-card">
-        <span>이번 달 장착</span>
+        <span>월평균 장착</span>
         <div>
-          <strong id="monthInstallCount">0</strong>
+          <strong id="averageInstallCount">0</strong>
           <small>대</small>
         </div>
+        <p>장착 실적이 있는 달 기준</p>
       </div>
 
       <div class="dashboard-summary-card">
-        <span>오늘 장착</span>
+        <span>사진 등록 완료율</span>
         <div>
-          <strong id="todayInstallCount">0</strong>
-          <small>대</small>
+          <strong id="photoCompletionRate">0</strong>
+          <small>%</small>
         </div>
+        <p>8개 사진 항목 완료 기준</p>
       </div>
 
       <div class="dashboard-summary-card">
-        <span>총 교육횟수</span>
+        <span>Confluence 연결률</span>
         <div>
-          <strong id="totalEducationCount">0</strong>
-          <small>회</small>
+          <strong id="confluenceConnectionRate">0</strong>
+          <small>%</small>
         </div>
+        <p>장착 기록과 페이지 연결 기준</p>
       </div>
 
     </div>
 
     <div class="dashboard-detail-grid">
 
+      <section class="dashboard-panel dashboard-chart-panel">
+        <div class="dashboard-panel-heading">
+          <div>
+            <span>월별 추이</span>
+            <h3>장착 실적 흐름</h3>
+          </div>
+        </div>
+        <div class="dashboard-chart-wrap">
+          <canvas id="monthlyInstallChart"></canvas>
+        </div>
+      </section>
+
+      <section class="dashboard-panel dashboard-action-panel">
+        <div class="dashboard-panel-heading">
+          <div>
+            <span>DATA QUALITY</span>
+            <h3>확인 필요</h3>
+          </div>
+        </div>
+        <div id="dashboardAttention" class="dashboard-attention-list"></div>
+      </section>
+
+      <section class="dashboard-panel dashboard-recent-panel">
+        <div class="dashboard-panel-heading">
+          <div>
+            <span>RECENT ACTIVITY</span>
+            <h3>최근 장착</h3>
+          </div>
+        </div>
+        <div id="dashboardRecent" class="dashboard-recent-list"></div>
+      </section>
+
       <section class="dashboard-panel">
-        <h3>판매구분</h3>
+        <div class="dashboard-panel-heading"><div><span>SALES</span><h3>판매구분</h3></div></div>
 
         <div
           id="salesTypeSummary"
@@ -87,7 +128,7 @@
       </section>
 
       <section class="dashboard-panel">
-        <h3>장착지역</h3>
+        <div class="dashboard-panel-heading"><div><span>REGION</span><h3>장착지역</h3></div></div>
 
         <div
           id="regionSummary"
@@ -98,7 +139,7 @@
       </section>
 
       <section class="dashboard-panel">
-        <h3>제품별 장착</h3>
+        <div class="dashboard-panel-heading"><div><span>PRODUCT</span><h3>제품별 장착</h3></div></div>
 
         <div
           id="productSummary"
@@ -109,8 +150,7 @@
       </section>
 
       <section class="dashboard-panel">
-
-        <h3>제조사별 장착</h3>
+        <div class="dashboard-panel-heading"><div><span>MAKER</span><h3>제조사별 장착</h3></div></div>
 
         <div
           id="manufacturerSummary"
@@ -118,13 +158,6 @@
         >
           <p class="empty">제조사 데이터를 불러오는 중입니다.</p>
         </div>
-      </section>
-      <section class="dashboard-panel dashboard-chart-panel">
-
-        <h3>월별 장착 추이</h3>
-          <div class="dashboard-chart-wrap">
-            <canvas id="monthlyInstallChart"></canvas>
-         </div>
       </section>
     </div>
 
@@ -244,6 +277,7 @@
               <option value="">선택</option>
               <option value="18T">18T</option>
               <option value="36T">36T</option>
+              <option value="40T">40T</option>
               <option value="36T.K">36T.K</option>
               <option value="케아24A">케아24A</option>
            </select>
@@ -781,14 +815,13 @@
                 <th>제품/BOX</th>
                 <th>농기계</th>
                 <th>사진</th>
-                <th>상태</th>
                 <th>Confluence</th>
                 <th>관리</th>
               </tr>
             </thead>
             <tbody id="recordsBody">
               <tr>
-                <td colspan="8" class="empty">저장된 데이터가 없습니다.</td>
+                <td colspan="7" class="empty">저장된 데이터가 없습니다.</td>
               </tr>
             </tbody>
           </table>
