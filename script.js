@@ -1582,6 +1582,7 @@ console.log(result.html.match(/ri:attachment[\s\S]{0,300}/g));
 const photoImportResult = await importConfluencePhotos({
     attachments: usedAttachments,
     photoMap,
+    pageId,
     url,
     email,
     token
@@ -1662,13 +1663,19 @@ if (dealerName) {
 
     const photoMessage = photoImportResult.imported > 0
         ? `\n사진 ${photoImportResult.imported}장을 가져왔습니다.`
+        : photoImportResult.failed > 0
+        ? (
+            `\n사진 다운로드 ${photoImportResult.failed}건이 실패했습니다.` +
+            `\n본문 참조 ${photoImportResult.references}개, ` +
+            `첨부 후보 ${photoImportResult.candidates}개`
+        )
         : (
             "\n가져올 사진이 없습니다." +
             `\n본문 참조 ${photoImportResult.references}개, ` +
             `첨부 후보 ${photoImportResult.candidates}개`
         );
 
-    const failedMessage = photoImportResult.failed > 0
+    const failedMessage = photoImportResult.imported > 0 && photoImportResult.failed > 0
         ? `\n사진 ${photoImportResult.failed}장은 가져오지 못했습니다.`
         : "";
 
@@ -1888,11 +1895,15 @@ function normalizeImportedDate(value) {
     const text = String(value || "").trim();
     if (!text) return "";
 
-    const match = text.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+    const match = text.match(/(?:^|\D)(\d{2}|\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D|$)/);
     if (!match) return text;
 
+    const year = match[1].length === 2
+        ? `20${match[1]}`
+        : match[1];
+
     return [
-        match[1],
+        year,
         match[2].padStart(2, "0"),
         match[3].padStart(2, "0")
     ].join("-");
@@ -1998,7 +2009,10 @@ function parseConfluencePhotos(html) {
         },
         {
             type: "vehicle",
-            labels: ["차량사진", "차량 사진", "농기계사진", "농기계 사진"]
+            labels: [
+                "차량제원", "차량 제원", "차량사진", "차량 사진",
+                "농기계사진", "농기계 사진"
+            ]
         },
         {
             type: "machineNumber",
@@ -2006,23 +2020,36 @@ function parseConfluencePhotos(html) {
         },
         {
             type: "rearCamera",
-            labels: ["후방카메라 사진", "후방카메라사진"]
+            labels: ["후방카메라 사진", "후방카메라사진", "후방카메라"]
         },
         {
             type: "version",
-            labels: ["버전사진", "버전 사진", "버전정보사진", "버전 정보 사진"]
+            labels: [
+                "F/W, S/W 버전", "F/W,S/W 버전", "F/W · S/W 버전",
+                "F/W · S/W", "F/W·S/W 버전",
+                "버전사진", "버전 사진", "버전정보사진", "버전 정보 사진"
+            ]
         },
         {
             type: "eps",
-            labels: ["EPS사진", "EPS 사진"]
+            labels: [
+                "EPS부 장착 사진", "EPS부 장착사진", "EPS 장착사진",
+                "EPS 장착 사진", "EPS사진", "EPS 사진"
+            ]
         },
         {
             type: "cpg",
-            labels: ["CPG사진", "CPG 사진"]
+            labels: [
+                "CPG / KEYPAD 장착사진", "CPG/KEYPAD 장착사진",
+                "CPG 장착사진", "CPG사진", "CPG 사진"
+            ]
         },
         {
             type: "acu",
-            labels: ["ACU사진", "ACU 사진"]
+            labels: [
+                "ACU부 부착 사진", "ACU부 부착사진", "ACU 장착사진",
+                "ACU 장착 사진", "ACU사진", "ACU 사진"
+            ]
         }
     ];
 
@@ -2041,22 +2068,39 @@ function parseConfluencePhotos(html) {
 
     sectionDefinitions.forEach(section => {
         section.labels.forEach(label => {
-            const index = normalizedHtml.indexOf(label);
+            let searchIndex = 0;
+            let index = normalizedHtml.indexOf(label, searchIndex);
 
-            if (index !== -1) {
+            while (index !== -1) {
                 sectionPositions.push({
                     type: section.type,
-                    index
+                    index,
+                    length: label.length
                 });
+
+                searchIndex = index + label.length;
+                index = normalizedHtml.indexOf(label, searchIndex);
             }
         });
     });
 
-    sectionPositions.sort((a, b) => a.index - b.index);
+    const uniqueSectionPositions = sectionPositions
+        .filter((section, index, positions) =>
+            !positions.some((other, otherIndex) =>
+                otherIndex !== index &&
+                other.length > section.length &&
+                other.index <= section.index &&
+                other.index + other.length >= section.index + section.length
+            )
+        )
+        .sort((a, b) => a.index - b.index || b.length - a.length)
+        .filter((section, index, positions) =>
+            index === 0 || section.index !== positions[index - 1].index
+        );
 
-    for (let i = 0; i < sectionPositions.length; i++) {
-        const current = sectionPositions[i];
-        const next = sectionPositions[i + 1];
+    for (let i = 0; i < uniqueSectionPositions.length; i++) {
+        const current = uniqueSectionPositions[i];
+        const next = uniqueSectionPositions[i + 1];
 
         const sectionHtml = normalizedHtml.slice(
             current.index,
@@ -2094,9 +2138,23 @@ function parseConfluencePhotos(html) {
         const prefix = filename.match(/^([a-zA-Z]+)_/)?.[1]?.toLowerCase();
         const photoType = filenameTypeMap[prefix];
 
-        if (photoType && !result[photoType].includes(filename)) {
+        if (photoType) {
+            Object.values(result).forEach(filenames => {
+                const index = filenames.indexOf(filename);
+                if (index !== -1) filenames.splice(index, 1);
+            });
+
             result[photoType].push(filename);
         }
+    });
+
+    const assignedFilenames = new Set();
+    Object.keys(result).forEach(photoType => {
+        result[photoType] = result[photoType].filter(filename => {
+            if (assignedFilenames.has(filename)) return false;
+            assignedFilenames.add(filename);
+            return true;
+        });
     });
 
     return result;
@@ -2163,6 +2221,7 @@ function bindInstallerButtons() {
 async function importConfluencePhotos({
     attachments,
     photoMap,
+    pageId,
     url,
     email,
     token
@@ -2172,6 +2231,7 @@ async function importConfluencePhotos({
     );
     let imported = 0;
     let failed = 0;
+    const processedFilenames = new Set();
 
     const photoTypes = [
         "install",
@@ -2188,6 +2248,9 @@ async function importConfluencePhotos({
         const filenames = photoMap[photoType] || [];
 
         for (const filename of filenames) {
+            if (processedFilenames.has(filename)) continue;
+            processedFilenames.add(filename);
+
             const attachment = attachmentMap.get(filename);
 
             if (!attachment?.downloadPath) {
@@ -2217,6 +2280,8 @@ async function importConfluencePhotos({
                         url,
                         email,
                         token,
+                        pageId,
+                        attachmentId: attachment.id || null,
                         downloadPath: attachment.downloadPath
                     })
                 }
