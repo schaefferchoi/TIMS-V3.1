@@ -7,7 +7,7 @@
   <title>TYMICT Install Manager v2</title>
 
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=vehicle-spec-acu-1" />
+  <link rel="stylesheet" href="style.css?v=consent-admin-list-5" />
   <link rel="stylesheet" href="admin.css">
 </head>
 
@@ -25,6 +25,7 @@
     <button class="tab" data-tab="list">장착목록</button>
     <button class="tab" data-tab="setting">설정</button>
     <button class="tab" data-tab="specs">차량제원</button>
+    <button class="tab" data-tab="consent">동의서</button>
     <button class="tab hidden" data-tab="admin">마스터 관리</button>
   </nav>
 
@@ -969,6 +970,106 @@ class="primary">
     </details>
   </div>
 </section>
+<section id="consentTab" class="page hidden">
+  <div class="card consent-card">
+    <div class="consent-header">
+      <div>
+        <span class="consent-eyebrow">PRIVACY CONSENT</span>
+        <h2>개인정보 동의서</h2>
+        <p>항목을 확인하고 마지막 단계에서 서명해 주세요.</p>
+      </div>
+      <button type="button" id="resetConsentForm" class="secondary">새 동의서</button>
+    </div>
+
+    <div class="consent-progress" aria-label="동의서 작성 단계">
+      <div id="consentProgressBar" class="consent-progress-bar"></div>
+      <strong id="consentStepLabel">1 / 5 기본정보</strong>
+    </div>
+
+    <form id="consentForm" novalidate>
+      <section class="consent-step active" data-consent-step="0">
+        <div class="consent-step-heading"><span>01</span><div><h3>기본정보</h3><p>동의자 정보를 입력해 주세요.</p></div></div>
+        <div class="consent-fields">
+          <label>성명 <em>필수</em><input id="consentName" name="customer_name" autocomplete="name" required></label>
+          <label>연락처 <em>필수</em><input id="consentPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="010-0000-0000" minlength="7" maxlength="30" pattern="[0-9+() -]{7,30}" title="숫자와 하이픈을 포함해 7자 이상 입력해 주세요." required></label>
+          <label class="wide">주소 <em>필수</em><input id="consentAddress" name="address" autocomplete="street-address" required></label>
+          <label>보유 브랜드<input id="consentBrand" name="owned_brand"></label>
+          <label>보유 제품명<input id="consentProduct" name="owned_product"></label>
+          <label>보유 대수<input id="consentCount" name="owned_count" type="number" inputmode="numeric" min="0" value="1"></label>
+        </div>
+        <label class="consent-check consent-age-check"><input id="consentAge" type="checkbox" required><span><strong>만 14세 이상입니다.</strong><small>만 14세 미만인 경우 법정대리인의 동의가 필요합니다.</small></span></label>
+      </section>
+
+      <section class="consent-step" data-consent-step="1">
+        <div class="consent-step-heading"><span>02</span><div><h3>필수 개인정보 수집·이용</h3><p>서비스 제공을 위한 필수 동의입니다.</p></div></div>
+        <div class="consent-table">
+          <div><strong>수집·이용 목적</strong><span>전시회 홍보 안내, 제품 정보 및 뉴스레터 제공</span></div>
+          <div><strong>수집 항목</strong><span>성명, 전화번호, 주소, 보유제품명</span></div>
+          <div><strong>보유·이용 기간</strong><span>정보 수집 후 5년</span></div>
+        </div>
+        <p class="consent-note">동의를 거부할 권리가 있으나, 거부 시 전시회 정보 안내와 제품 정보 제공에 제한이 있을 수 있습니다.</p>
+        <label class="consent-choice required"><input id="consentRequired" type="checkbox" required><span>위 개인정보 수집·이용에 동의합니다.</span></label>
+      </section>
+
+      <section class="consent-step" data-consent-step="2">
+        <div class="consent-step-heading"><span>03</span><div><h3>선택 개인정보 수집·이용</h3><p>선택 항목은 동의하지 않아도 됩니다.</p></div></div>
+        <div class="consent-table">
+          <div><strong>수집·이용 목적</strong><span>신규 서비스 및 이벤트 정보 안내, 경품 배송 및 행사 안내, 시장분석 및 품질·서비스 조사</span></div>
+          <div><strong>수집 항목</strong><span>성명, 전화번호, 주소, 보유제품명</span></div>
+          <div><strong>보유·이용 기간</strong><span>정보 수집 후 5년</span></div>
+        </div>
+        <div class="consent-radio-group" role="radiogroup" aria-label="선택 개인정보 수집 이용 동의">
+          <label><input type="radio" name="optional_collection" value="true"><span>동의함</span></label>
+          <label><input type="radio" name="optional_collection" value="false" checked><span>동의하지 않음</span></label>
+        </div>
+        <fieldset class="consent-channels"><legend>서비스 안내 수단</legend><label><input id="consentChannelPhone" type="checkbox"> 전화</label><label><input id="consentChannelMessage" type="checkbox"> 문자(SMS/LMS/MMS)</label></fieldset>
+      </section>
+
+      <section class="consent-step" data-consent-step="3">
+        <div class="consent-step-heading"><span>04</span><div><h3>제3자 제공 및 광고성 정보</h3><p>각 항목을 확인하고 선택해 주세요.</p></div></div>
+        <div class="consent-table third-party">
+          <div><strong>제공받는 자</strong><span>tymict</span></div>
+          <div><strong>제공 항목</strong><span>성명, 전화번호, 주소, 보유제품명</span></div>
+          <div><strong>이용 목적</strong><span>제품 배송 및 사후 고객관리, 차량·수리·동행 서비스, 홍보 우편 발송</span></div>
+          <div><strong>보유·이용 기간</strong><span>정보 수집 후 5년</span></div>
+        </div>
+        <div class="consent-question"><strong>개인정보 제3자 제공</strong><div class="consent-radio-group"><label><input type="radio" name="third_party" value="true"><span>동의함</span></label><label><input type="radio" name="third_party" value="false" checked><span>동의하지 않음</span></label></div></div>
+        <div class="consent-question"><strong>광고성 정보 수신</strong><div class="consent-radio-group"><label><input type="radio" name="marketing" value="true"><span>동의함</span></label><label><input type="radio" name="marketing" value="false" checked><span>동의하지 않음</span></label></div></div>
+      </section>
+
+      <section class="consent-step" data-consent-step="4">
+        <div class="consent-step-heading"><span>05</span><div><h3>최종 확인 및 서명</h3><p>입력 내용과 동의 여부를 확인한 뒤 서명해 주세요.</p></div></div>
+        <div id="consentReview" class="consent-review"></div>
+        <div class="signature-heading"><div><strong>동의자 서명</strong><small>손가락, 마우스 또는 터치펜으로 서명하세요.</small></div><button type="button" id="clearConsentSignature" class="secondary">서명 지우기</button></div>
+        <div class="signature-pad-wrap"><canvas id="consentSignature" aria-label="서명 입력 영역"></canvas><span id="signaturePlaceholder">이곳에 서명해 주세요</span></div>
+        <label class="consent-final-check"><input id="consentFinalConfirm" type="checkbox" required><span>위 내용을 모두 확인했으며 본인의 의사로 동의서를 제출합니다.</span></label>
+        <button type="submit" id="submitConsent" class="primary consent-submit">서명 동의서 제출</button>
+      </section>
+
+      <div class="consent-mobile-nav">
+        <button type="button" id="consentPrev" class="secondary" disabled>이전</button>
+        <button type="button" id="consentNext" class="primary">다음</button>
+      </div>
+    </form>
+
+    <div id="consentComplete" class="consent-complete hidden" aria-live="polite">
+      <span>✓</span><h3>동의서가 제출되었습니다.</h3><p id="consentCompleteText"></p>
+      <div><button type="button" id="printConsent" class="primary">인쇄·PDF 저장</button><button type="button" id="createAnotherConsent" class="secondary">새 동의서</button></div>
+    </div>
+  </div>
+
+  <div id="consentAdminPanel" class="card consent-admin hidden">
+    <div class="consent-admin-header"><div><span class="consent-eyebrow">ADMIN VIEW</span><h2>제출된 동의서</h2></div><button type="button" id="refreshConsentList" class="secondary">새로고침</button></div>
+    <div class="consent-admin-search"><input id="consentSearch" type="search" placeholder="성명 또는 연락처 검색"><span id="consentListCount"></span></div>
+    <div class="consent-list-toolbar">
+      <label>표시 건수<select id="consentPageSize" aria-label="동의서 표시 건수"><option value="10" selected>10줄 보기</option><option value="20">20줄 보기</option><option value="50">50줄 보기</option></select></label>
+      <div class="consent-pagination"><button type="button" id="consentPagePrev" class="secondary">이전</button><span id="consentPageInfo">1 / 1</span><button type="button" id="consentPageNext" class="secondary">다음</button></div>
+    </div>
+    <div id="consentList" class="consent-list"></div>
+  </div>
+
+  <article id="consentPrintArea" class="consent-print-area" aria-hidden="true"></article>
+</section>
 <section id="adminTab" class="page hidden">
   <div class="card master-card">
     <div class="master-header">
@@ -1173,6 +1274,7 @@ class="primary">
 
   <script src="./vehicleSpecsData.js?v=vehicle-spec-data-2"></script>
   <script src="./vehicleSpecs.js?v=vehicle-spec-data-2"></script>
+  <script src="./consent.js?v=consent-admin-list-5"></script>
 
   <script src="./script.js?v=photo-optimize-1"></script>
   <script src="./export.js"></script>
