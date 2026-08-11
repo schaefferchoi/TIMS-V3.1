@@ -7,7 +7,7 @@
   <title>TYMICT Install Manager v2</title>
 
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=vehicle-spec-acu-1" />
   <link rel="stylesheet" href="admin.css">
 </head>
 
@@ -24,6 +24,7 @@
     <button class="tab" data-tab="form">장착등록</button>
     <button class="tab" data-tab="list">장착목록</button>
     <button class="tab" data-tab="setting">설정</button>
+    <button class="tab" data-tab="specs">차량제원</button>
     <button class="tab hidden" data-tab="admin">마스터 관리</button>
   </nav>
 
@@ -927,6 +928,47 @@ class="primary">
     </div>
 </div>
 </section>
+<section id="specsTab" class="page hidden">
+  <div class="card vehicle-specs-card">
+    <div class="vehicle-specs-header">
+      <div>
+        <span class="vehicle-specs-eyebrow">VEHICLE SPECIFICATIONS</span>
+        <h2>차량제원 검색</h2>
+        <p>제조사 또는 기종을 검색하면 Confluence 기준 A~I 제원값을 확인할 수 있습니다.</p>
+      </div>
+      <a id="vehicleSpecSourceLink" class="vehicle-spec-source" target="_blank" rel="noopener noreferrer">Confluence 원본</a>
+    </div>
+
+    <label class="vehicle-spec-search-label" for="vehicleSpecSearch">제조사·기종 검색</label>
+    <div class="vehicle-spec-search-row">
+      <input
+        id="vehicleSpecSearch"
+        type="search"
+        list="vehicleSpecSuggestions"
+        placeholder="예: T130, 구보다 M7060, 존디어 6630"
+        autocomplete="off">
+      <button type="button" id="clearVehicleSpecSearch" class="secondary">초기화</button>
+    </div>
+    <datalist id="vehicleSpecSuggestions"></datalist>
+
+    <div id="vehicleSpecSummary" class="vehicle-spec-summary" aria-live="polite"></div>
+    <div class="vehicle-spec-acu-notice">
+      <span aria-hidden="true"></span>
+      빨간색 D·F·H 항목은 ACU 장착 위치가 바뀌면 현장에서 다시 측정해야 합니다.
+    </div>
+    <div id="vehicleSpecResults" class="vehicle-spec-results">
+      <div class="vehicle-spec-empty">
+        <strong>기종을 검색해 주세요.</strong>
+        <span>검색 결과에는 A~I 값이 미터 단위로 표시됩니다.</span>
+      </div>
+    </div>
+
+    <details class="vehicle-spec-guide">
+      <summary>A~I 항목 기준 보기</summary>
+      <div id="vehicleSpecDefinitions" class="vehicle-spec-definitions"></div>
+    </details>
+  </div>
+</section>
 <section id="adminTab" class="page hidden">
   <div class="card master-card">
     <div class="master-header">
@@ -1128,6 +1170,9 @@ class="primary">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="supabase.js"></script>
+
+  <script src="./vehicleSpecsData.js?v=vehicle-spec-data-2"></script>
+  <script src="./vehicleSpecs.js?v=vehicle-spec-data-2"></script>
 
   <script src="./script.js"></script>
   <script src="./export.js"></script>
