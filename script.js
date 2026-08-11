@@ -356,7 +356,37 @@ representative:
     };
 }
 
+let recordSaveInProgress = false;
+let photoUploadPromise = null;
+
+function setRecordSaveBusy(isBusy) {
+    document
+        .querySelectorAll('#installForm button[type="submit"], #saveAndMoveBtn')
+        .forEach(button => {
+            button.disabled = isBusy;
+        });
+
+    ["confluenceBtn", "bottomConfluenceBtn"].forEach(id => {
+        const button = document.getElementById(id);
+        if (button) button.disabled = isBusy;
+    });
+}
+
 async function saveRecord(record) {
+    if (recordSaveInProgress) {
+        alert("저장이 진행 중입니다.\n잠시만 기다려주세요.");
+        return false;
+    }
+
+    if (confluenceSyncInProgress) {
+        alert("Confluence 처리가 진행 중입니다.\n완료된 후 저장해 주세요.");
+        return false;
+    }
+
+    recordSaveInProgress = true;
+    setRecordSaveBusy(true);
+
+    try {
     let result;
 
 if (record.id) {
@@ -401,13 +431,34 @@ formChanged = false;
 
 alert("저장 완료");
 return savedRecord;
+    } catch (error) {
+        console.error("SAVE ERROR:", error);
+        alert(`저장 실패\n${error.message || "알 수 없는 오류가 발생했습니다."}`);
+        return false;
+    } finally {
+        recordSaveInProgress = false;
+        setRecordSaveBusy(false);
+    }
 }
 
 async function uploadTempPhotos(recordId) {
     if (!recordId) return;
+    if (photoUploadPromise) return photoUploadPromise;
+
+    photoUploadPromise = uploadQueuedPhotos(recordId);
+
+    try {
+        return await photoUploadPromise;
+    } finally {
+        photoUploadPromise = null;
+    }
+}
+
+async function uploadQueuedPhotos(recordId) {
 
     for (const photoType in tempPhotos) {
-        for (const file of tempPhotos[photoType]) {
+        while (tempPhotos[photoType].length > 0) {
+            const file = tempPhotos[photoType][0];
             const ext = file.name.split(".").pop().toLowerCase();
             const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
 
@@ -427,8 +478,7 @@ async function uploadTempPhotos(recordId) {
 
             if (uploadError) {
                 console.error(uploadError);
-                alert(uploadError.message);
-                return;
+                throw new Error(`사진 업로드 실패: ${uploadError.message}`);
 }
 
             const { data: publicUrlData } = supabaseClient.storage
@@ -446,22 +496,20 @@ async function uploadTempPhotos(recordId) {
 
             if (insertError) {
                 console.error(insertError);
-                alert("사진 정보 저장 실패");
-                return;
+                const { error: cleanupError } = await supabaseClient.storage
+                    .from("install-photos")
+                    .remove([fileName]);
+
+                if (cleanupError) {
+                    console.error("PHOTO CLEANUP ERROR:", cleanupError);
+                }
+
+                throw new Error("사진 정보 저장 실패");
             }
+
+            tempPhotos[photoType].shift();
         }
     }
-
-    tempPhotos = {
-    install: [],
-    vehicle: [],
-    machineNumber: [],
-    rearCamera: [],
-    eps: [],
-    cpg: [],
-    acu: [],
-    version: []
-};
 
     await loadPhotos();
 }
@@ -1469,6 +1517,11 @@ async function generateConfluence() {
         return;
     }
 
+    if (recordSaveInProgress) {
+        alert("저장이 진행 중입니다.\n완료된 후 Confluence 처리를 진행해 주세요.");
+        return;
+    }
+
     const buttons = [
         document.getElementById("confluenceBtn"),
         document.getElementById("bottomConfluenceBtn")
@@ -1485,6 +1538,9 @@ async function generateConfluence() {
 
     try {
         await runConfluenceSync();
+    } catch (error) {
+        console.error("CONFLUENCE SYNC ERROR:", error);
+        alert(`Confluence 처리 실패\n${error.message || "알 수 없는 오류가 발생했습니다."}`);
     } finally {
         confluenceSyncInProgress = false;
         buttons.forEach(button => {
