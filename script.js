@@ -478,7 +478,9 @@ async function uploadQueuedPhotos(recordId) {
 
             if (uploadError) {
                 console.error(uploadError);
-                throw new Error(`사진 업로드 실패: ${uploadError.message}`);
+                throw new Error(
+                    `사진 업로드 실패 (${file.name}, ${formatFileSize(file.size)}): ${uploadError.message}`
+                );
 }
 
             const { data: publicUrlData } = supabaseClient.storage
@@ -1248,6 +1250,94 @@ let tempPhotos = {
     version: []
 };
 
+const PHOTO_MAX_EDGE = 2560;
+const PHOTO_TARGET_BYTES = 4 * 1024 * 1024;
+const PHOTO_MIN_QUALITY = 0.55;
+
+function formatFileSize(bytes) {
+    return `${(Number(bytes || 0) / 1024 / 1024).toFixed(1)}MB`;
+}
+
+function loadPhotoImage(file) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        image.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            resolve(image);
+        };
+        image.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("사진 형식을 읽을 수 없습니다."));
+        };
+        image.src = objectUrl;
+    });
+}
+
+function canvasToJpeg(canvas, quality) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => {
+            if (blob) resolve(blob);
+            else reject(new Error("사진 압축에 실패했습니다."));
+        }, "image/jpeg", quality);
+    });
+}
+
+async function optimizePhoto(file) {
+    if (!file.type.startsWith("image/")) {
+        throw new Error(`${file.name}: 이미지 파일만 업로드할 수 있습니다.`);
+    }
+
+    let image;
+    try {
+        image = await loadPhotoImage(file);
+    } catch (error) {
+        if (file.size <= PHOTO_TARGET_BYTES) return file;
+        throw new Error(`${file.name}: ${error.message} ${formatFileSize(file.size)} 원본은 업로드하기에 너무 큽니다.`);
+    }
+
+    const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
+    if (file.size <= PHOTO_TARGET_BYTES && longestEdge <= PHOTO_MAX_EDGE) {
+        return file;
+    }
+
+    let scale = Math.min(1, PHOTO_MAX_EDGE / longestEdge);
+    let width = Math.max(1, Math.round(image.naturalWidth * scale));
+    let height = Math.max(1, Math.round(image.naturalHeight * scale));
+    let blob = null;
+
+    for (let resizeAttempt = 0; resizeAttempt < 3; resizeAttempt += 1) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+
+        for (let quality = 0.86; quality >= PHOTO_MIN_QUALITY; quality -= 0.08) {
+            blob = await canvasToJpeg(canvas, quality);
+            if (blob.size <= PHOTO_TARGET_BYTES) break;
+        }
+
+        if (blob?.size <= PHOTO_TARGET_BYTES) break;
+        width = Math.max(1, Math.round(width * 0.82));
+        height = Math.max(1, Math.round(height * 0.82));
+    }
+
+    if (!blob || blob.size > PHOTO_TARGET_BYTES) {
+        throw new Error(`${file.name}: 자동 압축 후에도 4MB를 초과합니다.`);
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
+    return new File([blob], `${baseName}.jpg`, {
+        type: "image/jpeg",
+        lastModified: file.lastModified
+    });
+}
+
 async function uploadPhotoByType(photoType, inputId) {
 
     const input = document.getElementById(inputId);
@@ -1256,9 +1346,23 @@ async function uploadPhotoByType(photoType, inputId) {
         return;
     }
 
-    // 선택한 사진을 tempPhotos에 저장
+    const optimizedMessages = [];
+    const failedMessages = [];
+
+    // 큰 사진은 모바일 업로드에 적합한 크기로 최적화한 뒤 임시 저장
     for (const file of input.files) {
-        tempPhotos[photoType].push(file);
+        try {
+            const optimizedFile = await optimizePhoto(file);
+            tempPhotos[photoType].push(optimizedFile);
+
+            if (optimizedFile !== file) {
+                optimizedMessages.push(
+                    `${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(optimizedFile.size)}`
+                );
+            }
+        } catch (error) {
+            failedMessages.push(error.message);
+        }
     }
 
     // 미리보기 갱신
@@ -1266,6 +1370,17 @@ async function uploadPhotoByType(photoType, inputId) {
 
     // 같은 파일을 다시 선택할 수 있도록 초기화
     input.value = "";
+
+    if (optimizedMessages.length > 0 || failedMessages.length > 0) {
+        const messages = [];
+        if (optimizedMessages.length > 0) {
+            messages.push(`사진 자동 최적화 완료\n${optimizedMessages.join("\n")}`);
+        }
+        if (failedMessages.length > 0) {
+            messages.push(`추가하지 못한 사진\n${failedMessages.join("\n")}`);
+        }
+        alert(messages.join("\n\n"));
+    }
 }
 
 async function loadPhotos() {
