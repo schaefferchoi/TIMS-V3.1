@@ -2900,6 +2900,18 @@ function toggleMachineSection() {
 // Dashboard 2.0
 // =========================================
 
+const DASHBOARD_REQUIRED_PHOTOS = [
+    ["install", "전체사진"],
+    ["vehicle", "차량제원"],
+    ["machineNumber", "농기계 기대번호"],
+    ["rearCamera", "후방카메라"],
+    ["eps", "EPS 장착사진"],
+    ["cpg", "CPG / KEYPAD 장착사진"],
+    ["acu", "ACU 장착사진"],
+    ["version", "F/W · S/W 버전"]
+];
+let dashboardAttentionDetails = {};
+
 async function loadDashboard() {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -3015,6 +3027,28 @@ async function loadDashboard() {
             !String(record.customer_phone || "").trim()
         ).length
     };
+    const attentionDetails = {
+        photo: records
+            .map(record => ({
+                ...record,
+                missingItems: DASHBOARD_REQUIRED_PHOTOS
+                    .filter(([type]) => !photoTypesByRecord[record.id]?.has(type))
+                    .map(([, label]) => label)
+            }))
+            .filter(record => record.missingItems.length > 0),
+        confluence: records
+            .filter(record => !record.confluence_page_id && !record.confluence_page_url)
+            .map(record => ({ ...record, missingItems: ["Confluence 페이지 미연결"] })),
+        customer: records
+            .map(record => ({
+                ...record,
+                missingItems: [
+                    !String(record.customer_name || "").trim() ? "고객명" : null,
+                    !String(record.customer_phone || "").trim() ? "연락처" : null
+                ].filter(Boolean)
+            }))
+            .filter(record => record.missingItems.length > 0)
+    };
     const recentRecords = records.slice(0, 5).map(record => ({
         ...record,
         photoCount: photoTypesByRecord[record.id]?.size || 0
@@ -3081,6 +3115,7 @@ async function loadDashboard() {
         photoCompletionRate,
         confluenceConnectionRate,
         attention,
+        attentionDetails,
         recentRecords,
         salesTypeCount,
         regionCount,
@@ -3222,6 +3257,7 @@ function updateDashboardUI({
     photoCompletionRate,
     confluenceConnectionRate,
     attention,
+    attentionDetails,
     recentRecords,
     salesTypeCount,
     regionCount,
@@ -3242,6 +3278,7 @@ function updateDashboardUI({
     setText("averageInstallCount", averageInstallCount);
     setText("photoCompletionRate", photoCompletionRate);
     setText("confluenceConnectionRate", confluenceConnectionRate);
+    dashboardAttentionDetails = attentionDetails || {};
 
     const attentionTarget = document.getElementById("dashboardAttention");
     if (attentionTarget) {
@@ -3250,12 +3287,19 @@ function updateDashboardUI({
             ["Confluence 미연결", attention.confluenceUnlinked, "confluence"],
             ["고객정보 확인 필요", attention.customerIncomplete, "customer"]
         ].map(([label, count, type]) => `
-            <div class="dashboard-attention-item ${Number(count) === 0 ? "is-clear" : ""}">
+            <button type="button" class="dashboard-attention-item ${Number(count) === 0 ? "is-clear" : ""}" data-attention-type="${type}" aria-expanded="false">
                 <span class="dashboard-attention-icon ${type}"></span>
-                <div><strong>${label}</strong><small>${Number(count) === 0 ? "완료" : "데이터 보완 필요"}</small></div>
+                <div><strong>${label}</strong><small>${Number(count) === 0 ? "완료" : "눌러 상세 확인"}</small></div>
                 <b>${count}건</b>
-            </div>
+            </button>
         `).join("");
+    }
+
+    const attentionDetail = document.getElementById("dashboardAttentionDetail");
+    if (attentionDetail) {
+        attentionDetail.classList.add("hidden");
+        attentionDetail.innerHTML = "";
+        attentionDetail.dataset.type = "";
     }
 
     const recentTarget = document.getElementById("dashboardRecent");
@@ -3407,6 +3451,64 @@ function drawMonthlyInstallChart(monthlyCount) {
         }
     });
 }
+
+function showDashboardAttention(type) {
+    const detail = document.getElementById("dashboardAttentionDetail");
+    const buttons = document.querySelectorAll("[data-attention-type]");
+    if (!detail) return;
+
+    const selectedButton = document.querySelector(`[data-attention-type="${type}"]`);
+    const isAlreadyOpen = !detail.classList.contains("hidden") && detail.dataset.type === type;
+    buttons.forEach(button => button.setAttribute("aria-expanded", "false"));
+
+    if (isAlreadyOpen) {
+        detail.classList.add("hidden");
+        detail.innerHTML = "";
+        detail.dataset.type = "";
+        return;
+    }
+
+    const titles = {
+        photo: "사진 항목 미완료",
+        confluence: "Confluence 미연결",
+        customer: "고객정보 확인 필요"
+    };
+    const records = dashboardAttentionDetails[type] || [];
+    selectedButton?.setAttribute("aria-expanded", "true");
+    detail.dataset.type = type;
+    detail.innerHTML = `
+        <div class="dashboard-attention-detail-heading">
+            <div><strong>${titles[type] || "확인 필요"}</strong><span>${records.length}건</span></div>
+            <button type="button" class="dashboard-attention-close" aria-label="상세 목록 닫기">×</button>
+        </div>
+        <div class="dashboard-attention-records">
+            ${records.length ? records.map(record => `
+                <button type="button" class="dashboard-attention-record" data-attention-record-id="${record.id}">
+                    <span class="dashboard-attention-record-date">${escapeHtml(record.install_date || "날짜 미입력")}</span>
+                    <span class="dashboard-attention-record-main">
+                        <strong>${escapeHtml(record.customer_name || "고객명 미입력")}</strong>
+                        <small>${escapeHtml([record.manufacturer, record.model_sn].filter(Boolean).join(" ") || record.product_name || "기종 미입력")}</small>
+                    </span>
+                    <span class="dashboard-attention-missing">${record.missingItems.map(item => `<em>${escapeHtml(item)}</em>`).join("")}</span>
+                </button>
+            `).join("") : '<p class="dashboard-attention-complete">확인할 항목이 없습니다.</p>'}
+        </div>`;
+    detail.classList.remove("hidden");
+}
+
+document.getElementById("dashboardAttention")?.addEventListener("click", event => {
+    const button = event.target.closest("[data-attention-type]");
+    if (button) showDashboardAttention(button.dataset.attentionType);
+});
+
+document.getElementById("dashboardAttentionDetail")?.addEventListener("click", event => {
+    if (event.target.closest(".dashboard-attention-close")) {
+        showDashboardAttention(event.currentTarget.dataset.type);
+        return;
+    }
+    const recordButton = event.target.closest("[data-attention-record-id]");
+    if (recordButton) viewRecord(recordButton.dataset.attentionRecordId);
+});
 
 function renderDashboardRanking(
     targetId,
