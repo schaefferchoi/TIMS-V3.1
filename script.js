@@ -2068,8 +2068,10 @@ const usedAttachments = candidateAttachmentNames.map(filename =>
 console.log("USED ATTACHMENTS:", usedAttachments);
 
 const data = parseConfluenceTable(result.html);
+const softwareVersions = parseConfluenceSoftwareVersions(result.html);
 
 console.log(data);
+console.log("IMPORTED SOFTWARE VERSIONS:", softwareVersions);
 
 const photoMap = parseConfluencePhotos(result.html);
 
@@ -2131,6 +2133,13 @@ Object.entries(importMap).forEach(([fieldName, labels]) => {
     }
 
     if (value) {
+        setFormControlValue(input, value);
+    }
+});
+
+Object.entries(softwareVersions).forEach(([fieldName, value]) => {
+    const input = form.elements[fieldName];
+    if (input && value) {
         setFormControlValue(input, value);
     }
 });
@@ -2547,6 +2556,57 @@ function parseConfluenceTable(html) {
 
         }
 
+    });
+
+    return result;
+}
+
+function parseConfluenceSoftwareVersions(html) {
+    const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+    const fieldLabels = {
+        ad_a1_software: [
+            "AD A1 Software",
+            "ADA1 Software",
+            "ADA1 S/W",
+            "자율주행 소프트웨어(MoA S/W)",
+            "주율주행 소프트웨어(MoA S/W)"
+        ],
+        coa_fw: [
+            "CoA F/W",
+            "자율주행 제어 펌웨어(CoA F/W)",
+            "자율주행 제어 펌웨어 (CoA F/W)"
+        ],
+        ins_ver: ["INS Ver", "INS Ver(INS S/W)", "INS Ver (INS S/W)"],
+        moa_fw: ["MoA F/W", "MOA FS Version(MoA F/W)", "MOA FS Version (MoA F/W)"],
+        cpg_fw: ["CPG F/W", "CPG FS Version(CPG F/W)", "CPG FS Version (CPG F/W)"],
+        adc2: ["ADC2(CPG S/W)", "ADC2 (CPG S/W)"],
+        cpad_sw: ["CPAD S/W", "자율주행 콘솔 S/W(CPAD SW)", "자율주행 콘솔 S/W (CPAD SW)"]
+    };
+    const normalizedFieldLabels = Object.fromEntries(
+        Object.entries(fieldLabels).map(([fieldName, labels]) => [
+            fieldName,
+            new Set(labels.map(normalizeConfluenceLabel))
+        ])
+    );
+    const result = {};
+
+    doc.querySelectorAll("table tr").forEach(row => {
+        const cells = [...row.querySelectorAll(":scope > th, :scope > td")];
+
+        cells.forEach((cell, index) => {
+            const normalizedCell = normalizeConfluenceLabel(cell.textContent);
+            const nextValue = cells[index + 1]?.textContent
+                .replace(/\s+/g, " ")
+                .trim();
+
+            if (!nextValue) return;
+
+            Object.entries(normalizedFieldLabels).forEach(([fieldName, labels]) => {
+                if (!result[fieldName] && labels.has(normalizedCell)) {
+                    result[fieldName] = nextValue;
+                }
+            });
+        });
     });
 
     return result;
