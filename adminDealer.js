@@ -13,6 +13,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 });
 
+async function refreshRegistrationDealerNames(dealerTypeId) {
+    const registrationDealerType =
+        document.getElementById("dealerType")?.value;
+
+    if (
+        registrationDealerType &&
+        String(registrationDealerType) === String(dealerTypeId) &&
+        typeof loadDealerNames === "function"
+    ) {
+        await loadDealerNames(registrationDealerType);
+    }
+}
+
 
 async function loadAdminDealerTypeSelect() {
     const select = document.getElementById("adminDealerType");
@@ -120,6 +133,7 @@ async function addDealerCompany() {
     dealerNameInput.value = "";
 
     await loadAdminDealerCompanies();
+    await refreshRegistrationDealerNames(dealerTypeId);
 
     alert("거래처가 추가되었습니다.");
 }
@@ -318,6 +332,9 @@ async function toggleDealerCompanyActive(id, currentActive) {
     }
 
     await loadAdminDealerCompanies();
+    await refreshRegistrationDealerNames(
+        document.getElementById("adminDealerType")?.value
+    );
 }
 async function editDealerCompany(id) {
 
@@ -359,14 +376,17 @@ async function editDealerCompany(id) {
     }
 
     await loadAdminDealerCompanies();
+    await refreshRegistrationDealerNames(
+        document.getElementById("adminDealerType")?.value
+    );
 }
 async function deleteDealerCompany(id) {
     const config = { table: "master_dealers", title: "거래처명" };
     if (!await deleteMasterItem(config, id)) return;
     await loadAdminDealerCompanies();
-    if (typeof loadDealerCompanies === "function") {
-        await loadDealerCompanies();
-    }
+    await refreshRegistrationDealerNames(
+        document.getElementById("adminDealerType")?.value
+    );
 }
 async function moveDealerCompany(
     id,
@@ -422,4 +442,5 @@ async function moveDealerCompany(
     }
 
     await loadAdminDealerCompanies();
+    await refreshRegistrationDealerNames(dealerTypeId);
 }

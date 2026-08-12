@@ -1122,7 +1122,7 @@ async function editRecord(id) {
         return;
     }
 
-    fillForm(data);
+    await fillForm(data);
     await loadPhotos();
     document.querySelectorAll(".page").forEach(page => {
     page.classList.add("hidden");
@@ -1181,12 +1181,14 @@ async function viewRecord(id) {
 
     modal.classList.remove("hidden");
 }
-function fillForm(record) {
+async function fillForm(record) {
     const form = document.getElementById("installForm");
 
     if (!form) return;
 
     Object.entries(record).forEach(([key, value]) => {
+        if (key === "dealer_id" || key === "dealer_name") return;
+
         const input = form.elements[key];
 
         if (input) {
@@ -1208,6 +1210,27 @@ function fillForm(record) {
     const recordIdInput = document.getElementById("recordId");
     if (recordIdInput) {
         recordIdInput.value = record.id ?? "";
+    }
+
+    const dealerTypeSelect = form.elements["dealer_type_id"];
+    const dealerNameInput = document.getElementById("dealerName");
+
+    if (dealerTypeSelect) {
+        dealerTypeSelect.value = record.dealer_type_id ?? "";
+        await loadDealerNames(dealerTypeSelect.value);
+    }
+
+    if (dealerNameInput) {
+        const selectedDealerOption = [
+            ...document.querySelectorAll("#dealerNameList option")
+        ].find(option =>
+            String(option.dataset.id || "") === String(record.dealer_id || "")
+        );
+
+        dealerNameInput.value =
+            selectedDealerOption?.value ||
+            record.dealer_name ||
+            "";
     }
 
     // PLUS 모델 여부에 따라 농기계 2 표시
