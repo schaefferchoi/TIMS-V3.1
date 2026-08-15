@@ -25,7 +25,7 @@
     <button class="tab" data-tab="list">장착목록</button>
     <button class="tab" data-tab="setting">설정</button>
     <button class="tab" data-tab="specs">차량제원</button>
-    <button class="tab" data-tab="consent">동의서</button>
+    <button class="tab hidden" data-tab="consent" hidden aria-hidden="true">동의서</button>
     <button class="tab hidden" data-tab="admin">마스터 관리</button>
   </nav>
 
@@ -223,6 +223,8 @@
             <option value="일반">일반</option>
             <option value="보조">보조</option>
             <option value="B2B">B2B</option>
+            <option value="이전장착">이전장착</option>
+            <option value="무료체험">무료체험</option>
             <option value="기타">기타</option>
         </select>
     </label>
@@ -1277,7 +1279,7 @@ class="primary">
   <script src="./vehicleSpecs.js?v=vehicle-spec-data-2"></script>
   <script src="./consent.js?v=consent-admin-list-5"></script>
 
-  <script src="./script.js?v=dealer-name-restore-1"></script>
+  <script src="./script.js?v=sales-type-options-1"></script>
   <script src="./export.js"></script>
 
   <script src="adminMaster.js"></script>

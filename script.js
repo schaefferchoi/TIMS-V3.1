@@ -3141,6 +3141,8 @@ async function loadDashboard() {
         일반: 0,
         보조: 0,
         B2B: 0,
+        이전장착: 0,
+        무료체험: 0,
         기타: 0
     };
 
@@ -3419,6 +3421,16 @@ function updateDashboardUI({
             <div>
                 <span>B2B</span>
                 <strong>${salesTypeCount.B2B}</strong>
+            </div>
+
+            <div>
+                <span>이전장착</span>
+                <strong>${salesTypeCount.이전장착}</strong>
+            </div>
+
+            <div>
+                <span>무료체험</span>
+                <strong>${salesTypeCount.무료체험}</strong>
             </div>
 
             <div>
