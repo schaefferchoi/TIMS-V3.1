@@ -448,12 +448,20 @@
     </label>
 
     <label>
-    주요작물 및 농사규모
-    <input
-        name="crop_and_scale"
-        placeholder="예) 벼 1만평, 콩 5천평"
-    />
-</label>
+        주요작물
+        <input
+            name="main_crop"
+            placeholder="예) 벼, 콩, 인삼"
+        />
+    </label>
+
+    <label>
+        농사규모
+        <input
+            name="farm_scale"
+            placeholder="예) 1만평"
+        />
+    </label>
 </div>
 
 <h4>교육정보 (선택)</h4>
@@ -806,6 +814,12 @@
             <button type="button" class="filter-chip" data-filter="week">이번주</button>
             <button type="button" class="filter-chip" data-filter="month">이번달</button>
           </div>
+          <select
+            id="recordWeekSelect"
+            class="record-month-select"
+            aria-label="장착 주차 선택">
+            <option value="">주간 선택</option>
+          </select>
           <select
             id="recordMonthSelect"
             class="record-month-select"
@@ -1279,7 +1293,7 @@ class="primary">
   <script src="./vehicleSpecs.js?v=vehicle-spec-data-2"></script>
   <script src="./consent.js?v=consent-admin-list-5"></script>
 
-  <script src="./script.js?v=sales-type-options-1"></script>
+  <script src="./script.js?v=confluence-inline-fields-1"></script>
   <script src="./export.js"></script>
 
   <script src="adminMaster.js"></script>

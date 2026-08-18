@@ -202,6 +202,8 @@ function collectFormData() {
     const dealerId = toNullableInteger(
         dealerOption?.dataset.id
     );
+    const mainCrop = String(formData.get("main_crop") || "").trim();
+    const farmScale = String(formData.get("farm_scale") || "").trim();
     console.log("record 생성 직전:", {
         dealer_type_id: formData.get("dealer_type_id"),
         dealer_id: formData.get("dealer_id")
@@ -310,8 +312,14 @@ representative:
         customer_address:
             formData.get("customer_address") || null,
 
+        main_crop:
+            mainCrop || null,
+
+        farm_scale:
+            farmScale || null,
+
         crop_and_scale:
-            formData.get("crop_and_scale") || null,
+            [mainCrop, farmScale].filter(Boolean).join(" ") || null,
 
         education_date:
             formData.get("education_date") || null,
@@ -605,6 +613,18 @@ async function loadRecords() {
         console.error(photoError);
     }
 
+    const { data: dealerTypes, error: dealerTypeError } = await supabaseClient
+        .from("master_dealer_types")
+        .select("id, name");
+
+    if (dealerTypeError) {
+        console.error("거래처 유형 조회 실패:", dealerTypeError);
+    }
+
+    const dealerTypeNameMap = Object.fromEntries(
+        (dealerTypes || []).map(item => [String(item.id), item.name])
+    );
+
     const photoTypeMap = {};
     const photoSetMap = {};
 
@@ -631,6 +651,10 @@ allRecords = (data || []).map(record => ({
         record.dealer_name ||
         "",
 
+    dealer_type_name:
+        dealerTypeNameMap[String(record.dealer_type_id || "")] ||
+        "",
+
     photoCount:
         photoTypeMap[record.id]?.size || 0,
 
@@ -639,6 +663,7 @@ allRecords = (data || []).map(record => ({
 }));
 
     renderYearFilterChips();
+    renderWeekFilterOptions();
     renderMonthFilterOptions();
     applyRecordFilters();
 }
@@ -762,35 +787,69 @@ function renderRecordPage() {
     if (nextButton) nextButton.disabled = recordCurrentPage >= totalPages;
 }
 
+const RECORD_EXPORT_COLUMNS = [
+    ["주문접수일", "order_date"],
+    ["장착일", "install_date"],
+    ["장착 시작시간", "install_start_time"],
+    ["장착 종료시간", "install_end_time"],
+    ["판매구분", "sales_type"],
+    ["거래처 유형", "dealer_type_name"],
+    ["거래처명", "dealer_name"],
+    ["대표자", "representative"],
+    ["제품명", "product_name"],
+    ["BOX S/N", "box_sn"],
+    ["KEYPAD S/N", "keypad_sn"],
+    ["스플라인", "spline"],
+    ["브라켓", "bracket"],
+    ["후방카메라", "rear_camera"],
+    ["농기계1 기종", "machine_type"],
+    ["농기계1 제조사", "manufacturer"],
+    ["농기계1 모델명", "model_sn"],
+    ["농기계1 마력(HP)", "horsepower"],
+    ["농기계1 기대번호", "machine_number"],
+    ["농기계2 기종", "machine_type_2"],
+    ["농기계2 제조사", "manufacturer_2"],
+    ["농기계2 모델명", "model_sn_2"],
+    ["농기계2 마력(HP)", "horsepower_2"],
+    ["농기계2 기대번호", "machine_number_2"],
+    ["고객명", "customer_name"],
+    ["연락처", "customer_phone"],
+    ["주소", "customer_address"],
+    ["주요작물", "main_crop"],
+    ["농사규모", "farm_scale"],
+    ["교육일자", "education_date"],
+    ["교육직원", "education_staff"],
+    ["AD A1 Software", "ad_a1_software"],
+    ["CoA F/W", "coa_fw"],
+    ["INS Ver", "ins_ver"],
+    ["MoA F/W", "moa_fw"],
+    ["CPG F/W", "cpg_fw"],
+    ["ADC2", "adc2"],
+    ["CPAD S/W", "cpad_sw"],
+    ["장착주체", "install_subject"],
+    ["장착직원", "installer"],
+    ["주요 이슈", "major_issue"],
+    ["고객 의견 / 요청사항", "customer_request"]
+];
+
+function getRecordExportValue(record, key) {
+    return record?.[key] ?? "";
+}
+
 function exportRecordsToExcel() {
-    if (!allRecords.length) {
+    const records = [...filteredRecords];
+
+    if (!records.length) {
         alert("내보낼 장착 데이터가 없습니다.");
         return;
     }
 
-    const headers = [
-        "장착일",
-        "고객명",
-        "제품명",
-        "BOX S/N",
-        "제조사",
-        "모델명",
-        "사진",
-        "Confluence"
-    ];
-
-    const rows = allRecords.map(record => [
-        record.install_date || "",
-        record.customer_name || "",
-        record.product_name || "",
-        record.box_sn || "",
-        record.manufacturer || "",
-        record.model_sn || "",
-        `${record.photoCount || 0}/8`,
-        record.confluence_page_url
-            ? "동기화 완료"
-            : "미동기화"
-    ]);
+    const headers = RECORD_EXPORT_COLUMNS.map(([label]) => label);
+    const rows = records.map(record =>
+        RECORD_EXPORT_COLUMNS.map(([, key]) =>
+            getRecordExportValue(record, key)
+        )
+    );
 
     const csvRows = [
         headers,
@@ -814,9 +873,7 @@ function exportRecordsToExcel() {
 
     link.href = url;
     link.download =
-        `TYMICT_장착목록_${new Date()
-            .toISOString()
-            .slice(0, 10)}.csv`;
+        `TYMICT_장착목록_${getRecordExportScopeLabel()}.csv`;
 
     document.body.appendChild(link);
     link.click();
@@ -826,29 +883,46 @@ function exportRecordsToExcel() {
 }
 
 function exportRecordsToPdf() {
-    if (!allRecords.length) {
+    const records = [...filteredRecords];
+
+    if (!records.length) {
         alert("내보낼 장착 데이터가 없습니다.");
         return;
     }
 
-    const rows = allRecords.map(record => `
-        <tr>
-            <td>${escapeHtml(record.install_date || "-")}</td>
-            <td>${escapeHtml(record.customer_name || "-")}</td>
-            <td>${escapeHtml(record.product_name || "-")}</td>
-            <td>${escapeHtml(record.box_sn || "-")}</td>
-            <td>
-                ${escapeHtml(record.manufacturer || "")}
-                ${escapeHtml(record.model_sn || "")}
-            </td>
-            <td>${record.photoCount || 0}/8</td>
-            <td>
-                ${record.confluence_page_url
-                    ? "동기화 완료"
-                    : "미동기화"}
-            </td>
-        </tr>
-    `).join("");
+    const recordTables = records.map((record, recordIndex) => {
+        const detailRows = [];
+
+        for (let index = 0; index < RECORD_EXPORT_COLUMNS.length; index += 2) {
+            const [firstLabel, firstKey] = RECORD_EXPORT_COLUMNS[index];
+            const secondColumn = RECORD_EXPORT_COLUMNS[index + 1];
+            const firstValue = getRecordExportValue(record, firstKey);
+            const secondLabel = secondColumn?.[0] || "";
+            const secondValue = secondColumn
+                ? getRecordExportValue(record, secondColumn[1])
+                : "";
+
+            detailRows.push(`
+                <tr>
+                    <th>${escapeHtml(firstLabel)}</th>
+                    <td>${escapeHtml(firstValue || "-")}</td>
+                    <th>${escapeHtml(secondLabel)}</th>
+                    <td>${escapeHtml(secondValue || "-")}</td>
+                </tr>
+            `);
+        }
+
+        return `
+            <section class="record-section">
+                <h2>
+                    ${recordIndex + 1}. ${escapeHtml(record.install_date || "장착일 미입력")}
+                    · ${escapeHtml(record.dealer_name || "거래처 미입력")}
+                    · ${escapeHtml(record.product_name || "제품 미입력")}
+                </h2>
+                <table><tbody>${detailRows.join("")}</tbody></table>
+            </section>
+        `;
+    }).join("");
 
     const printWindow = window.open("", "_blank");
 
@@ -862,7 +936,7 @@ function exportRecordsToPdf() {
         <html lang="ko">
         <head>
             <meta charset="UTF-8">
-            <title>TYMICT 장착목록</title>
+            <title>TYMICT 장착목록 ${escapeHtml(getRecordExportScopeLabel())}</title>
 
             <style>
                 body {
@@ -876,10 +950,24 @@ function exportRecordsToPdf() {
                     font-size: 22px;
                 }
 
+                h2 {
+                    margin: 0;
+                    padding: 9px 11px;
+                    background: #e8eef7;
+                    border: 1px solid #9aa8ba;
+                    border-bottom: 0;
+                    font-size: 13px;
+                }
+
                 .print-date {
                     margin-bottom: 20px;
                     color: #666;
                     font-size: 12px;
+                }
+
+                .record-section {
+                    margin-bottom: 18px;
+                    break-inside: avoid;
                 }
 
                 table {
@@ -894,14 +982,20 @@ function exportRecordsToPdf() {
                     padding: 7px;
                     text-align: left;
                     vertical-align: top;
+                    white-space: pre-wrap;
                 }
 
                 th {
                     background: #eef3f8;
+                    width: 15%;
+                }
+
+                td {
+                    width: 35%;
                 }
 
                 @page {
-                    size: A4 landscape;
+                    size: A4 portrait;
                     margin: 12mm;
                 }
             </style>
@@ -911,26 +1005,12 @@ function exportRecordsToPdf() {
             <h1>TYMICT 장착목록</h1>
 
             <div class="print-date">
+                기간: ${escapeHtml(getRecordExportScopeLabel())} ·
+                총 ${records.length}건 ·
                 출력일: ${new Date().toLocaleDateString("ko-KR")}
             </div>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>장착일</th>
-                        <th>고객명</th>
-                        <th>제품명</th>
-                        <th>BOX S/N</th>
-                        <th>농기계</th>
-                        <th>사진</th>
-                        <th>Confluence</th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
+            ${recordTables}
 
             <script>
                 window.onload = function () {
@@ -951,6 +1031,106 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function getIsoWeekKey(dateValue) {
+    const match = String(dateValue || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return "";
+
+    const date = new Date(Date.UTC(
+        Number(match[1]),
+        Number(match[2]) - 1,
+        Number(match[3])
+    ));
+    const day = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - day);
+
+    const weekYear = date.getUTCFullYear();
+    const yearStart = new Date(Date.UTC(weekYear, 0, 1));
+    const weekNumber = Math.ceil(
+        (((date - yearStart) / 86400000) + 1) / 7
+    );
+
+    return `${weekYear}-W${String(weekNumber).padStart(2, "0")}`;
+}
+
+function getIsoWeekRangeLabel(weekKey) {
+    const match = String(weekKey || "").match(/^(\d{4})-W(\d{2})$/);
+    if (!match) return "";
+
+    const year = Number(match[1]);
+    const week = Number(match[2]);
+    const januaryFourth = new Date(Date.UTC(year, 0, 4));
+    const januaryFourthDay = januaryFourth.getUTCDay() || 7;
+    const monday = new Date(januaryFourth);
+    monday.setUTCDate(
+        januaryFourth.getUTCDate() - januaryFourthDay + 1 + ((week - 1) * 7)
+    );
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+
+    const format = date => [
+        String(date.getUTCMonth() + 1).padStart(2, "0"),
+        String(date.getUTCDate()).padStart(2, "0")
+    ].join(".");
+
+    return `${format(monday)}~${format(sunday)}`;
+}
+
+function getRecordExportScopeLabel() {
+    const selectedWeek = document.getElementById("recordWeekSelect")?.value || "";
+    const selectedMonth = document.getElementById("recordMonthSelect")?.value || "";
+    const activeFilter = document.querySelector("#recordFilter .filter-chip.active");
+    const filter = activeFilter?.dataset.filter || "all";
+    const searchKeyword = document.getElementById("searchInput")?.value.trim();
+    const today = new Date();
+    const todayText = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, "0"),
+        String(today.getDate()).padStart(2, "0")
+    ].join("-");
+    let scope = "전체";
+
+    if (selectedWeek) {
+        scope = selectedWeek.replace("-W", "-") + "주";
+    } else if (selectedMonth) {
+        scope = selectedMonth;
+    } else if (filter === "today") {
+        scope = todayText;
+    } else if (filter === "week") {
+        scope = getIsoWeekKey(todayText).replace("-W", "-") + "주";
+    } else if (filter === "month") {
+        scope = todayText.slice(0, 7);
+    } else if (filter === "year") {
+        scope = `${activeFilter?.dataset.year || today.getFullYear()}년`;
+    }
+
+    return searchKeyword ? `${scope}_검색결과` : scope;
+}
+
+function renderWeekFilterOptions() {
+    const select = document.getElementById("recordWeekSelect");
+    if (!select) return;
+
+    const previousValue = select.value;
+    const weeks = [...new Set(
+        allRecords
+            .map(record => getIsoWeekKey(record.install_date))
+            .filter(Boolean)
+    )].sort((a, b) => b.localeCompare(a));
+
+    select.innerHTML = '<option value="">주간 선택</option>';
+
+    weeks.forEach(weekKey => {
+        const option = document.createElement("option");
+        option.value = weekKey;
+        option.textContent = `${weekKey.replace("-W", "년 ")}주 (${getIsoWeekRangeLabel(weekKey)})`;
+        select.appendChild(option);
+    });
+
+    if (weeks.includes(previousValue)) {
+        select.value = previousValue;
+    }
 }
 
 function renderYearFilterChips() {
@@ -1027,6 +1207,8 @@ function applyRecordFilters(resetPage = true) {
 
     const activeFilter = document.querySelector(".filter-chip.active");
     const filter = activeFilter?.dataset.filter || "all";
+    const selectedWeek =
+        document.getElementById("recordWeekSelect")?.value || "";
     const selectedMonth =
         document.getElementById("recordMonthSelect")?.value || "";
 
@@ -1051,6 +1233,17 @@ function applyRecordFilters(resetPage = true) {
 
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
+
+    if (selectedWeek) {
+        records = records.filter(record =>
+            getIsoWeekKey(record.install_date) === selectedWeek
+        );
+
+        filteredRecords = records;
+        if (resetPage) recordCurrentPage = 1;
+        renderRecordPage();
+        return;
+    }
 
     if (selectedMonth) {
         records = records.filter(record =>
@@ -1210,6 +1403,17 @@ async function fillForm(record) {
     const recordIdInput = document.getElementById("recordId");
     if (recordIdInput) {
         recordIdInput.value = record.id ?? "";
+    }
+
+    if (
+        !String(record.main_crop || "").trim() &&
+        !String(record.farm_scale || "").trim() &&
+        String(record.crop_and_scale || "").trim()
+    ) {
+        const mainCropInput = form.elements["main_crop"];
+        if (mainCropInput) {
+            mainCropInput.value = record.crop_and_scale;
+        }
     }
 
     const dealerTypeSelect = form.elements["dealer_type_id"];
@@ -2322,11 +2526,33 @@ document.getElementById("recordFilter")
 
         const monthSelect = document.getElementById("recordMonthSelect");
         if (monthSelect) monthSelect.value = "";
+        const weekSelect = document.getElementById("recordWeekSelect");
+        if (weekSelect) weekSelect.value = "";
+
+        applyRecordFilters();
+    });
+document.getElementById("recordWeekSelect")
+    ?.addEventListener("change", event => {
+        const monthSelect = document.getElementById("recordMonthSelect");
+        if (monthSelect) monthSelect.value = "";
+
+        document.querySelectorAll(".filter-chip").forEach(button => {
+            button.classList.remove("active");
+        });
+
+        if (!event.target.value) {
+            document
+                .querySelector('[data-filter="all"]')
+                ?.classList.add("active");
+        }
 
         applyRecordFilters();
     });
 document.getElementById("recordMonthSelect")
     ?.addEventListener("change", event => {
+        const weekSelect = document.getElementById("recordWeekSelect");
+        if (weekSelect) weekSelect.value = "";
+
         if (event.target.value) {
             document.querySelectorAll(".filter-chip").forEach(button => {
                 button.classList.remove("active");
@@ -2578,6 +2804,35 @@ function parseConfluenceTable(html) {
             });
 
         }
+
+        // 과거 Confluence 페이지에는 한 행 안에
+        // "항목(th) → 값(td) → 항목(th) → 값(td)"이 반복되는 표가 있다.
+        // 위의 제목 행/값 행 파싱에서 누락되는 해당 구조도 함께 읽는다.
+        rows.forEach(row => {
+            const cells = [
+                ...row.querySelectorAll(":scope > th, :scope > td")
+            ];
+
+            cells.forEach((cell, index) => {
+                const valueCell = cells[index + 1];
+                const isLabelCell =
+                    cell.tagName === "TH" ||
+                    Boolean(cell.querySelector("strong, b"));
+
+                if (!isLabelCell || valueCell?.tagName !== "TD") return;
+
+                const key = cell.textContent
+                    .replace(/\s+/g, " ")
+                    .trim();
+                const value = valueCell.textContent
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                if (key && value && !String(result[key] || "").trim()) {
+                    result[key] = value;
+                }
+            });
+        });
 
     });
 
