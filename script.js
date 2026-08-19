@@ -1740,6 +1740,8 @@ function renderPhotos(photos) {
                 <img
                     src="${photo.photo_url}"
                     alt="사진"
+                    loading="lazy"
+                    decoding="async"
                     draggable="false"
                     onclick="openPhoto('${photo.photo_url}')">
 

@@ -170,6 +170,18 @@ R2 또는 기존 Supabase Storage에 업로드된 사진과 장착 레코드의 
 
 R2 버킷 자체의 공개 개발 URL은 사용하지 않으며 Worker를 통해서만 객체를 제공합니다. 허용 Origin과 최대 업로드 크기는 `cloudflare/tims-photo-storage/wrangler.jsonc`에서 관리합니다.
 
+기존 Supabase Storage 사진을 R2로 이전하거나 저장소 사용량을 점검할 때는 다음 도구를 사용합니다.
+
+```bash
+node scripts/migrate-supabase-photos-to-r2.mjs status
+node scripts/migrate-supabase-photos-to-r2.mjs backup
+node scripts/migrate-supabase-photos-to-r2.mjs copy
+node scripts/migrate-supabase-photos-to-r2.mjs verify
+node scripts/migrate-supabase-photos-to-r2.mjs sample-hash
+```
+
+DB 주소 전환과 원본 삭제 모드는 R2 전수 검증과 별도 백업 후에만 실행해야 합니다. 실행 상태와 삭제 토큰이 포함된 매니페스트 및 목록 백업은 `.migration/`, `migration-backups/`에 생성되며 Git에는 포함하지 않습니다.
+
 ### Edge Functions
 
 클라이언트가 호출하는 함수는 다음 두 가지입니다.
