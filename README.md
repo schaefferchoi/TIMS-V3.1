@@ -2,7 +2,7 @@
 
 TIMS(TYMICT Install Manager)는 농기계·차량 현장 장착 업무를 기록하고 관리하는 웹 애플리케이션입니다. 장착 담당자가 주문 및 장착 정보, 거래처, 제품, 농기계, 고객, 교육, 소프트웨어 버전과 현장 사진을 한 화면에서 등록할 수 있도록 구성되어 있습니다.
 
-저장된 장착 건은 목록에서 조회·검색·필터링할 수 있으며, 대시보드 통계와 Confluence 페이지 생성·수정·연결·가져오기를 지원합니다. 데이터와 사진 메타데이터는 Supabase Database에, 사진 원본은 Supabase Storage에 저장합니다.
+저장된 장착 건은 목록에서 조회·검색·필터링할 수 있으며, 대시보드 통계와 Confluence 페이지 생성·수정·연결·가져오기를 지원합니다. 데이터와 사진 메타데이터는 Supabase Database에 저장하고, 신규 사진 원본은 Cloudflare R2에 저장합니다. 이전에 Supabase Storage에 저장된 사진도 계속 조회·삭제할 수 있습니다.
 
 > 현재 문서는 저장소의 실제 코드와 `feature/admin-v3` 작업 내용을 기준으로 작성했습니다. 저장소에는 SQL 마이그레이션이나 배포 워크플로가 없으므로, 데이터 타입·제약 조건·RLS 정책과 실제 GitHub Pages 설정은 Supabase/GitHub 콘솔에서 별도로 확인해야 합니다.
 
@@ -63,9 +63,10 @@ TIMS(TYMICT Install Manager)는 농기계·차량 현장 장착 업무를 기록
 | 구분 | 기술 | 코드에서 확인된 용도 |
 | --- | --- | --- |
 | 프런트엔드 | HTML5, CSS3, Vanilla JavaScript | 단일 페이지 탭 UI, 폼, 목록, 모달, 관리자 화면 |
-| 백엔드 서비스 | Supabase JavaScript Client v2 | Database CRUD, Storage 업로드·조회·삭제 |
+| 백엔드 서비스 | Supabase JavaScript Client v2 | Database CRUD와 기존 Storage 사진 호환 |
 | 데이터베이스 | Supabase Database | 장착 기록, 사진 메타데이터, 마스터 데이터 저장 |
-| 파일 저장소 | Supabase Storage | 현장 사진 원본 저장 및 공개 URL 생성 |
+| 파일 저장소 | Cloudflare R2, Supabase Storage | 신규 사진 원본 저장, 기존 사진 호환 |
+| 사진 API | Cloudflare Workers, TypeScript | R2 사진 업로드·조회·삭제와 CORS 처리 |
 | 서버리스 | Supabase Edge Functions, Deno, TypeScript | Confluence REST API 프록시 및 페이지/첨부파일 처리 |
 | 외부 연동 | Confluence REST API | 템플릿 조회, 페이지 생성·수정·가져오기 |
 | 차트 | Chart.js | 월별 장착 추이 시각화 |
@@ -77,7 +78,7 @@ Supabase JS와 Chart.js는 `index.html`에서 CDN으로 로드합니다. 패키�
 
 ## 프로젝트 파일 구조
 
-저장소에는 별도의 하위 폴더가 없으며 주요 파일이 프로젝트 루트에 있습니다.
+주요 실행 파일은 프로젝트 루트에 있고, 서버리스 코드는 서비스별 하위 폴더에 있습니다.
 
 ```text
 .
@@ -90,6 +91,10 @@ Supabase JS와 Chart.js는 `index.html`에서 CDN으로 로드합니다. 패키�
 ├── admin.css              # 관리자 마스터 화면 전용 스타일
 ├── supabase.js            # 전역 Supabase 클라이언트 초기화
 ├── index.ts               # Confluence 페이지 생성·수정 Edge Function 소스
+├── cloudflare/
+│   └── tims-photo-storage/ # R2 사진 API Worker 소스와 Wrangler 설정
+├── supabase/
+│   └── functions/         # Confluence 관련 Edge Function 소스
 ├── manifest.json          # 웹 앱 이름, 시작 URL, 테마 정보
 ├── service-worker.js      # 루트/HTML/manifest 캐시 로직
 └── index_v1_backup.html   # 이전 버전 화면 백업
@@ -122,7 +127,7 @@ Supabase JS와 Chart.js는 `index.html`에서 CDN으로 로드합니다. 패키�
 
 ### `install_photos`
 
-Storage에 업로드된 사진과 장착 레코드의 연결 정보를 저장합니다.
+R2 또는 기존 Supabase Storage에 업로드된 사진과 장착 레코드의 연결 정보를 저장합니다.
 
 | 확인된 컬럼 | 용도 |
 | --- | --- |
@@ -132,6 +137,8 @@ Storage에 업로드된 사진과 장착 레코드의 연결 정보를 저장합
 | `photo_path` | Storage 내부 파일 경로 |
 | `photo_url` | 공개 사진 URL |
 | `created_at` | 사진 목록 정렬 |
+| `storage_provider` | `r2` 또는 `supabase` 저장소 구분 |
+| `storage_delete_token` | R2 객체 삭제용 개별 토큰; Supabase 사진은 `null` |
 
 코드에서 사용하는 `photo_type` 값은 `install`, `vehicle`, `machineNumber`, `rearCamera`, `eps`, `cpg`, `acu`, `version`입니다.
 
@@ -145,21 +152,23 @@ Storage에 업로드된 사진과 장착 레코드의 연결 정보를 저장합
 
 이 네 테이블 외에 현재 실행 코드에서 참조하는 Supabase Database 테이블은 확인되지 않았습니다.
 
-## Supabase Storage 및 Edge Functions
+## 사진 저장소 및 Edge Functions
 
 ### 사진 저장 방식
 
-사진은 먼저 브라우저의 임시 배열에서 종류별로 미리보기 됩니다. 장착 레코드가 저장되면 각 파일을 Storage에 업로드하고, 성공한 파일의 경로와 공개 URL을 `install_photos`에 저장합니다.
+사진은 먼저 브라우저에서 종류별로 미리보기 및 용량 최적화됩니다. 장착 레코드가 저장되면 신규 파일은 Cloudflare Worker를 통해 비공개 R2 버킷에 업로드하고, Worker 공개 조회 URL과 객체 경로를 `install_photos`에 저장합니다.
 
 ```text
 {recordId}/{photoType}_{timestamp}_{randomUUID}.{extension}
 ```
 
-- Storage bucket: `install-photos`
-- 공개 URL: Supabase 클라이언트의 `getPublicUrl()`로 생성
-- 삭제: Storage의 `photo_path`를 먼저 삭제한 뒤 `install_photos` 행 삭제
+- R2 bucket: `tims-install-photos`
+- Worker: `cloudflare/tims-photo-storage`
+- 신규 사진 공개 URL: Worker의 `/photos/{photo_path}` 경로
+- 기존 사진: `storage_provider` 기본값 `supabase`로 구분하여 `install-photos` 버킷 URL을 그대로 사용
+- 삭제: 저장소 유형에 맞춰 원본 객체를 먼저 삭제한 뒤 `install_photos` 행 삭제
 
-버킷의 공개/비공개 설정과 Storage 정책은 저장소에서 확인할 수 없습니다.
+R2 버킷 자체의 공개 개발 URL은 사용하지 않으며 Worker를 통해서만 객체를 제공합니다. 허용 Origin과 최대 업로드 크기는 `cloudflare/tims-photo-storage/wrangler.jsonc`에서 관리합니다.
 
 ### Edge Functions
 
@@ -202,7 +211,7 @@ python3 -m http.server 8000
 
 - 클라이언트 생성 위치: `supabase.js`
 - 로드 순서: Supabase JS CDN → `supabase.js` → `script.js` → `admin.js`
-- 필요한 리소스: 위 네 개 Database 테이블, `install-photos` Storage bucket, 두 Edge Function
+- 필요한 리소스: Database 테이블, 기존 사진용 `install-photos` Storage bucket, Confluence Edge Functions, `tims-install-photos` R2 bucket과 사진 Worker
 - 실제 운영 전 Database RLS와 Storage 정책을 Supabase 대시보드에서 확인해야 합니다.
 
 ### Confluence 설정

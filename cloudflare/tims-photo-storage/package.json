@@ -1,0 +1,17 @@
+{
+  "name": "tims-photo-storage",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "check": "wrangler types --check && tsc --noEmit && wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260819.1",
+    "typescript": "7.0.2",
+    "wrangler": "4.124.0"
+  }
+}
+

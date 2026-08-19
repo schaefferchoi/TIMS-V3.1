@@ -5,6 +5,11 @@ let formChanged = false;
 let pendingTabName = null;
 let monthlyInstallChartInstance = null;
 
+// 신규 사진은 Cloudflare R2에 저장합니다. 기존 Supabase Storage 사진은
+// install_photos.storage_provider 값으로 구분해 그대로 조회/삭제합니다.
+const PHOTO_UPLOAD_PROVIDER = "r2";
+const R2_PHOTO_API_URL = "https://tims-photo-storage.tims-tymict.workers.dev";
+
 document.addEventListener("DOMContentLoaded", () => {
 
     const tabs = document.querySelectorAll(".tab");
@@ -467,52 +472,24 @@ async function uploadQueuedPhotos(recordId) {
     for (const photoType in tempPhotos) {
         while (tempPhotos[photoType].length > 0) {
             const file = tempPhotos[photoType][0];
-            const ext = file.name.split(".").pop().toLowerCase();
-            const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
-
-            console.log("UPLOAD FILE:", fileName);
-            console.log("BUCKET:", "install-photos");
-
-            const {
-                 data: uploadData,
-                 error: uploadError
-                    } =
-            await supabaseClient.storage
-             .from("install-photos")
-             .upload(fileName, file);
-
-                console.log("UPLOAD DATA:", uploadData);
-                console.log("UPLOAD ERROR:", uploadError);
-
-            if (uploadError) {
-                console.error(uploadError);
-                throw new Error(
-                    `사진 업로드 실패 (${file.name}, ${formatFileSize(file.size)}): ${uploadError.message}`
-                );
-}
-
-            const { data: publicUrlData } = supabaseClient.storage
-                .from("install-photos")
-                .getPublicUrl(fileName);
+            const storedPhoto = await uploadPhotoObject(recordId, photoType, file);
 
             const { error: insertError } = await supabaseClient
                 .from("install_photos")
                 .insert({
                     record_id: recordId,
                     photo_type: photoType,
-                    photo_path: fileName,
-                    photo_url: publicUrlData.publicUrl
+                    photo_path: storedPhoto.photoPath,
+                    photo_url: storedPhoto.photoUrl,
+                    storage_provider: storedPhoto.storageProvider,
+                    storage_delete_token: storedPhoto.deleteToken
                 });
 
             if (insertError) {
                 console.error(insertError);
-                const { error: cleanupError } = await supabaseClient.storage
-                    .from("install-photos")
-                    .remove([fileName]);
-
-                if (cleanupError) {
+                await deletePhotoObject(storedPhoto).catch(cleanupError => {
                     console.error("PHOTO CLEANUP ERROR:", cleanupError);
-                }
+                });
 
                 throw new Error("사진 정보 저장 실패");
             }
@@ -522,6 +499,100 @@ async function uploadQueuedPhotos(recordId) {
     }
 
     await loadPhotos();
+}
+
+async function uploadPhotoObject(recordId, photoType, file) {
+    if (PHOTO_UPLOAD_PROVIDER === "r2") {
+        const contentType = file.type === "image/jpg"
+            ? "image/jpeg"
+            : (file.type || "image/jpeg");
+        const response = await fetch(`${R2_PHOTO_API_URL}/v1/photos`, {
+            method: "POST",
+            headers: {
+                "Content-Type": contentType,
+                "X-Record-Id": recordId,
+                "X-Photo-Type": photoType,
+                "X-File-Name": file.name
+            },
+            body: file
+        });
+        const responseText = await response.text();
+        let result = null;
+
+        try {
+            result = responseText ? JSON.parse(responseText) : null;
+        } catch (error) {
+            console.error("R2 응답 해석 실패:", responseText, error);
+        }
+
+        if (!response.ok || !result?.photoPath || !result?.photoUrl) {
+            throw new Error(
+                `사진 업로드 실패 (${file.name}, ${formatFileSize(file.size)}): ` +
+                (result?.error || `R2 서버 응답 오류 (${response.status})`)
+            );
+        }
+
+        return {
+            photoPath: result.photoPath,
+            photoUrl: result.photoUrl,
+            storageProvider: "r2",
+            deleteToken: result.deleteToken || null
+        };
+    }
+
+    const ext = file.name.split(".").pop().toLowerCase();
+    const fileName = `${recordId}/${photoType}_${Date.now()}_${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabaseClient.storage
+        .from("install-photos")
+        .upload(fileName, file);
+
+    if (uploadError) {
+        throw new Error(
+            `사진 업로드 실패 (${file.name}, ${formatFileSize(file.size)}): ${uploadError.message}`
+        );
+    }
+
+    const { data: publicUrlData } = supabaseClient.storage
+        .from("install-photos")
+        .getPublicUrl(fileName);
+
+    return {
+        photoPath: fileName,
+        photoUrl: publicUrlData.publicUrl,
+        storageProvider: "supabase",
+        deleteToken: null
+    };
+}
+
+async function deletePhotoObject({ photoPath, storageProvider, deleteToken }) {
+    if (storageProvider === "r2") {
+        const response = await fetch(
+            `${R2_PHOTO_API_URL}/v1/photos/${encodeURI(photoPath)}`,
+            {
+                method: "DELETE",
+                headers: { "X-Delete-Token": deleteToken || "" }
+            }
+        );
+        const responseText = await response.text();
+        let result = null;
+
+        try {
+            result = responseText ? JSON.parse(responseText) : null;
+        } catch (error) {
+            console.error("R2 삭제 응답 해석 실패:", responseText, error);
+        }
+
+        if (!response.ok) {
+            throw new Error(result?.error || `R2 사진 삭제 실패 (${response.status})`);
+        }
+        return;
+    }
+
+    const { error } = await supabaseClient.storage
+        .from("install-photos")
+        .remove([photoPath]);
+
+    if (error) throw error;
 }
 
 function renderTempPhotos(photoType) {
@@ -1675,7 +1746,7 @@ function renderPhotos(photos) {
                 <button
                     type="button"
                     class="danger"
-                    onclick="deletePhoto('${photo.id}','${photo.photo_path}')">
+                    onclick="deletePhoto('${photo.id}','${encodeURIComponent(photo.photo_path || "")}','${photo.storage_provider || "supabase"}','${photo.storage_delete_token || ""}')">
                     삭제
                 </button>
 
@@ -1802,18 +1873,20 @@ function newForm() {
         behavior: "smooth"
     });
 }
-async function deletePhoto(photoId, photoPath) {
+async function deletePhoto(photoId, encodedPhotoPath, storageProvider = "supabase", deleteToken = "") {
     if (!confirm("이 사진을 삭제하시겠습니까?")) {
         return;
     }
 
-    const { error: storageError } = await supabaseClient.storage
-        .from("install-photos")
-        .remove([photoPath]);
-
-    if (storageError) {
+    try {
+        await deletePhotoObject({
+            photoPath: decodeURIComponent(encodedPhotoPath),
+            storageProvider,
+            deleteToken
+        });
+    } catch (storageError) {
         console.error(storageError);
-        alert("Storage 사진 삭제 실패");
+        alert(`사진 저장소 삭제 실패: ${storageError.message || "알 수 없는 오류"}`);
         return;
     }
 

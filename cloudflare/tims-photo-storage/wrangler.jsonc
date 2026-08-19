@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "tims-photo-storage",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-19",
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "tims-install-photos"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://schaefferchoi.github.io,http://localhost:8000,http://127.0.0.1:8000",
+    "MAX_UPLOAD_BYTES": "5242880"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  }
+}
