@@ -657,6 +657,35 @@ let filteredRecords = [];
 let recordCurrentPage = 1;
 let recordPageSize = 10;
 
+async function fetchAllPhotoTypeRows(recordIds = null) {
+    const pageSize = 1000;
+    const rows = [];
+
+    for (let from = 0; ; from += pageSize) {
+        let query = supabaseClient
+            .from("install_photos")
+            .select("id, record_id, photo_type")
+            .order("id", { ascending: true })
+            .range(from, from + pageSize - 1);
+
+        if (Array.isArray(recordIds)) {
+            if (recordIds.length === 0) return { data: [], error: null };
+            query = query.in("record_id", recordIds);
+        }
+
+        const { data, error } = await query;
+
+        if (error) return { data: rows, error };
+
+        const page = data || [];
+        rows.push(...page);
+
+        if (page.length < pageSize) break;
+    }
+
+    return { data: rows, error: null };
+}
+
 async function loadRecords() {
     const { data, error } = await supabaseClient
     .from("install_records")
@@ -676,9 +705,7 @@ async function loadRecords() {
         return;
     }
 
-    const { data: photos, error: photoError } = await supabaseClient
-        .from("install_photos")
-        .select("record_id, photo_type");
+    const { data: photos, error: photoError } = await fetchAllPhotoTypeRows();
 
     if (photoError) {
         console.error(photoError);
@@ -3381,10 +3408,8 @@ async function loadDashboard() {
     let photos = [];
 
     if (recordIds.length > 0) {
-        const { data: photoData, error: photoError } = await supabaseClient
-            .from("install_photos")
-            .select("record_id, photo_type")
-            .in("record_id", recordIds);
+        const { data: photoData, error: photoError } =
+            await fetchAllPhotoTypeRows(recordIds);
 
         if (photoError) {
             console.error("대시보드 사진 집계 실패:", photoError);
