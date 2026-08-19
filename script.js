@@ -471,7 +471,12 @@ async function uploadQueuedPhotos(recordId) {
 
     for (const photoType in tempPhotos) {
         while (tempPhotos[photoType].length > 0) {
-            const file = tempPhotos[photoType][0];
+            const originalFile = tempPhotos[photoType][0];
+            const file = await optimizePhoto(originalFile);
+
+            // Confluence 가져오기처럼 수동 선택을 거치지 않은 사진도
+            // 업로드 제한보다 작게 만든 상태로 재시도할 수 있게 보관합니다.
+            tempPhotos[photoType][0] = file;
             const storedPhoto = await uploadPhotoObject(recordId, photoType, file);
 
             const { error: insertError } = await supabaseClient
@@ -506,16 +511,37 @@ async function uploadPhotoObject(recordId, photoType, file) {
         const contentType = file.type === "image/jpg"
             ? "image/jpeg"
             : (file.type || "image/jpeg");
-        const response = await fetch(`${R2_PHOTO_API_URL}/v1/photos`, {
-            method: "POST",
-            headers: {
-                "Content-Type": contentType,
-                "X-Record-Id": recordId,
-                "X-Photo-Type": photoType,
-                "X-File-Name": file.name
-            },
-            body: file
-        });
+        let response = null;
+
+        for (let attempt = 1; attempt <= 3; attempt += 1) {
+            try {
+                response = await fetch(`${R2_PHOTO_API_URL}/v1/photos`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": contentType,
+                        "X-Record-Id": recordId,
+                        "X-Photo-Type": photoType,
+                        // HTTP 헤더에는 한글 파일명을 직접 넣지 않습니다.
+                        "X-File-Name": encodeURIComponent(file.name).slice(0, 500)
+                    },
+                    body: file
+                });
+                break;
+            } catch (error) {
+                if (attempt === 3) {
+                    throw new Error(
+                        `사진 업로드 연결 실패 (${file.name}, ${formatFileSize(file.size)}). ` +
+                        "네트워크 상태를 확인한 뒤 저장을 다시 눌러주세요."
+                    );
+                }
+
+                await new Promise(resolve => setTimeout(resolve, attempt * 700));
+            }
+        }
+
+        if (!response) {
+            throw new Error(`사진 업로드 연결 실패 (${file.name})`);
+        }
         const responseText = await response.text();
         let result = null;
 
@@ -3304,8 +3330,14 @@ async function importConfluencePhotos({
                 }
             );
 
-            tempPhotos[photoType].push(file);
-            imported += 1;
+            try {
+                const optimizedFile = await optimizePhoto(file);
+                tempPhotos[photoType].push(optimizedFile);
+                imported += 1;
+            } catch (error) {
+                console.error("가져온 사진 최적화 실패:", filename, error);
+                failed += 1;
+            }
         }
 
         renderTempPhotos(photoType);
